@@ -1,0 +1,66 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Doctor-Patient Video</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="login-screen" class="screen">
+    <h1>Welcome</h1>
+    <input id="name" placeholder="Enter your name" />
+    <div>
+      <label><input type="radio" name="role" value="patient" checked /> Patient</label>
+      <label><input type="radio" name="role" value="doctor" /> Doctor</label>
+    </div>
+    <button id="btnLogin">Join</button>
+  </div>
+
+  <div id="main-screen" class="screen" style="display:none;">
+    <header>
+      <div id="meInfo"></div>
+      <button id="btnLogout">Logout</button>
+    </header>
+
+    <main>
+      <section class="list-panel">
+        <h2>Doctors</h2>
+        <ul id="doctorsList" class="user-list"></ul>
+      </section>
+
+      <section class="list-panel">
+        <h2>Patients</h2>
+        <ul id="patientsList" class="user-list"></ul>
+      </section>
+
+      <section class="video-panel">
+        <div id="incomingPrompt" class="prompt" style="display:none;">
+          <div id="incomingText"></div>
+          <button id="acceptBtn">Accept</button>
+          <button id="declineBtn">Decline</button>
+        </div>
+
+        <div id="videoArea" style="display:none;">
+          <div class="videos">
+            <div>
+              <h4>Local</h4>
+              <video id="localVideo" autoplay muted playsinline></video>
+            </div>
+            <div>
+              <h4>Remote</h4>
+              <video id="remoteVideo" autoplay playsinline></video>
+            </div>
+          </div>
+          <div class="controls">
+            <button id="hangupBtn">Hang up</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

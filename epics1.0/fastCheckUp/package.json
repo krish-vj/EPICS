@@ -1,0 +1,13 @@
+{
+  "name": "doctor-patient-video",
+  "version": "1.0.0",
+  "description": "Simple doctor/patient video calling app using Node/Express, Socket.io and WebRTC",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.8.1"
+  }
+}

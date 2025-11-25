@@ -1,0 +1,16 @@
+body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f3f4f6; color:#111; }
+.screen { padding:20px; max-width:1000px; margin:20px auto; background:white; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08); }
+header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+main { display:flex; gap:16px; }
+.list-panel { flex:1; min-width:220px; }
+.user-list { list-style:none; padding:0; margin:0; }
+.user-list li { display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #eee; }
+.call-btn { background:transparent; border:0; cursor:pointer; font-size:18px; }
+.call-btn:hover { color:green; }
+.video-panel { flex:1.5; min-width:320px; }
+.videos { display:flex; gap:12px; }
+.videos video { width:320px; height:240px; background:black; border-radius:6px; }
+.prompt { padding:10px; border:1px solid #ddd; border-radius:6px; background:#fff3bf; }
+.controls { margin-top:8px; }
+button { padding:8px 12px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+button:hover { opacity:0.95; }
