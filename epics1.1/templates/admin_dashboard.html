@@ -1,0 +1,8 @@
+<h2>Pending Doctors</h2>
+{% for d in doctors %}
+<p>
+  {{ d.name }} - {{ d.specialization }}
+  <a href="/approve/{{ d.id }}">Approve</a>
+</p>
+{% endfor %}
+

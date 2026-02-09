@@ -1,0 +1,11 @@
+<h2>Doctor Dashboard</h2>
+
+{% for c, p in cases %}
+<div>
+    <b>Patient:</b> {{ p.name }} ({{ p.age }})<br>
+    <b>History:</b> {{ p.medical_history }}<br>
+    <b>Symptoms:</b> {{ c.symptoms }}
+</div>
+<hr>
+{% endfor %}
+

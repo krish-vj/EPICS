@@ -1,0 +1,12 @@
+<h2>Patient Dashboard</h2>
+
+<form method="post">
+    <textarea name="symptoms" placeholder="Enter symptoms"></textarea><br>
+    <button>Open Case</button>
+</form>
+
+<h3>Your Cases</h3>
+{% for c in cases %}
+<p>{{ c.symptoms }}</p>
+{% endfor %}
+
