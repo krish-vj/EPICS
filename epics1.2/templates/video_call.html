@@ -1,0 +1,30 @@
+<script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+<video id="local" autoplay muted style="width:200px"></video>
+<video id="remote" autoplay style="width:400px"></video>
+<button onclick="endCall()">End Call</button>
+
+<script>
+    const peer = new Peer('{{ current_user.id }}');
+    const roomId = 'room-{{ room_id }}';
+    let currentCall;
+
+    navigator.mediaDevices.getUserMedia({video: true, audio: true}).then(stream => {
+        document.getElementById('local').srcObject = stream;
+        
+        peer.on('call', call => {
+            call.answer(stream);
+            call.on('stream', remoteStream => {
+                document.getElementById('remote').srcObject = remoteStream;
+            });
+            currentCall = call;
+        });
+
+        // Simplified logic: If doctor, they "call" the patient ID
+        // Note: In a real app, you'd fetch the recipient's ID via JS
+    });
+
+    function endCall() {
+        if(currentCall) currentCall.close();
+        window.location.href = "/{{ current_user.role.lower() }}";
+    }
+</script>

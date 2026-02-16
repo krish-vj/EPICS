@@ -1,0 +1,10 @@
+<h2>Case Details</h2>
+<p><b>Patient Name:</b> {{ patient.name }} ({{ patient.age }} yrs)</p>
+<p><b>Current Symptoms:</b> {{ case.symptoms }}</p>
+<hr>
+<h3>Full Medical History</h3>
+<div style="background: #f4f4f4; padding: 10px;">{{ patient.medical_history }}</div>
+
+<br>
+<a href="/call/{{ case.id }}" style="background: green; color: white; padding: 10px;">Start Video Call</a>
+<a href="/doctor">Back</a>

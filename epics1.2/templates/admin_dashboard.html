@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><title>Admin Panel</title></head>
+<body>
+    <h2>Pending Doctor Verifications</h2>
+    {% if doctors %}
+        <ul>
+        {% for d in doctors %}
+            <li>
+                {{ d.name }} ({{ d.spec }}) 
+                <a href="/approve/{{ d.id }}"><button>Approve Doctor</button></a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>No doctors awaiting approval.</p>
+    {% endif %}
+    <br>
+    <a href="/logout">Logout</a>
+</body>
+</html>

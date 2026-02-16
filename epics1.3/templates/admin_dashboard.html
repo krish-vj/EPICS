@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Admin Dashboard</h2>
+<h3>Pending Doctor Approvals</h3>
+<table class="table">
+    <thead><tr><th>Username</th><th>Specialization</th><th>Action</th></tr></thead>
+    <tbody>
+        {% for doc in doctors %}
+        <tr>
+            <td>{{ doc.user.username }}</td>
+            <td>{{ doc.specialization or 'N/A' }}</td>
+            <td><a href="{{ url_for('approve_doctor', doc_id=doc.id) }}" class="btn btn-sm btn-primary">Approve</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3">No pending approvals.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

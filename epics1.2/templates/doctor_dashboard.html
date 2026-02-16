@@ -1,0 +1,19 @@
+<h2>Doctor Dashboard</h2>
+
+<h3>Available Cases (New)</h3>
+{% for c in available %}
+<div>
+    {{ c.patient.name }} - {{ c.symptoms[:30] }}...
+    <a href="/claim_case/{{ c.id }}">✔️ Take up Case</a>
+</div>
+{% endfor %}
+
+<hr>
+
+<h3>My Patients</h3>
+{% for c in my_patients %}
+<div>
+    <b>Patient:</b> {{ c.patient.name }} 
+    <a href="/view_case/{{ c.id }}">View Details & Call</a>
+</div>
+{% endfor %}

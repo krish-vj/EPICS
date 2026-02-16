@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Patient Dashboard</h2>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        {% if not profile.name %}
+            <div class="alert alert-danger">
+                Please <a href="{{ url_for('edit_profile') }}">complete your medical profile</a> before submitting cases.
+            </div>
+        {% else %}
+            <div class="d-flex justify-content-between bg-light p-3 rounded">
+                <div>
+                    <strong>My Profile:</strong> {{ profile.name }} ({{ profile.age }} yrs)<br>
+                    <small>History: {{ profile.medical_history|truncate(50) }}</small>
+                </div>
+                <div>
+                    <a href="{{ url_for('edit_profile') }}" class="btn btn-secondary btn-sm">Edit History</a>
+                    <a href="{{ url_for('create_case') }}" class="btn btn-primary btn-sm">Report New Symptoms</a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<h3>My Cases</h3>
+<table class="table table-striped">
+    <thead><tr><th>Date</th><th>Symptoms</th><th>Status</th><th>Doctor</th></tr></thead>
+    <tbody>
+        {% for case in cases %}
+        <tr>
+            <td>{{ case.created_at.strftime('%Y-%m-%d') }}</td>
+            <td>{{ case.symptoms }}</td>
+            <td>
+                {% if case.status == 'open' %}
+                    <span class="badge bg-warning text-dark">Waiting for Doctor</span>
+                {% else %}
+                    <span class="badge bg-success">Active</span>
+                {% endif %}
+            </td>
+            <td>{{ case.doctor_profile.user.username if case.doctor_profile else '-' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

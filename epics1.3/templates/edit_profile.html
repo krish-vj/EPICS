@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Edit Medical Profile</h2>
+<form method="post">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.name.label }} {{ form.name(class="form-control") }}
+    </div>
+    <div class="mb-3">
+        {{ form.age.label }} {{ form.age(class="form-control") }}
+    </div>
+    <div class="mb-3">
+        {{ form.medical_history.label }} 
+        {{ form.medical_history(class="form-control", rows=5) }}
+        <div class="form-text">Enter chronic conditions, allergies, or past surgeries. This stays persistent.</div>
+    </div>
+    {{ form.submit(class="btn btn-primary") }}
+</form>
+{% endblock %}

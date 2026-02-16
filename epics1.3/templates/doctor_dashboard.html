@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Doctor Dashboard</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">My Active Patients</div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for case in my_cases %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ case.patient_profile.name }}</strong><br>
+                            <small>{{ case.symptoms|truncate(30) }}</small>
+                        </div>
+                        <a href="{{ url_for('view_case', case_id=case.id) }}" class="btn btn-primary btn-sm">View & Call</a>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item">No active cases.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-warning">Available Cases (Waiting List)</div>
+            <div class="card-body">
+                <ul class="list-group">
+                    {% for case in open_cases %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ case.patient_profile.name }}</strong> ({{ case.patient_profile.age }} yrs)<br>
+                            <small>{{ case.symptoms|truncate(40) }}</small>
+                        </div>
+                        <a href="{{ url_for('accept_case', case_id=case.id) }}" class="btn btn-outline-dark btn-sm">✔ Accept Case</a>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item">No pending cases.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

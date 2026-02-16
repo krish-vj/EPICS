@@ -1,0 +1,24 @@
+<h2>Welcome, {{ patient.name }}</h2>
+<section>
+    <h3>Update Medical History</h3>
+    <form method="POST">
+        <textarea name="history">{{ patient.medical_history }}</textarea>
+        <button name="update_history">Update History</button>
+    </form>
+</section>
+
+<section>
+    <h3>Report New Symptoms</h3>
+    <form method="POST">
+        <textarea name="symptoms" placeholder="How do you feel?"></textarea>
+        <button type="submit">Open Case</button>
+    </form>
+</section>
+
+<h3>Your Case History</h3>
+{% for c in cases %}
+    <p><b>Symptoms:</b> {{ c.symptoms }} | <b>Status:</b> {{ 'Assigned' if c.doctor_id else 'Pending' }}</p>
+    {% if c.doctor_id %}
+    <a href="/call/{{ c.id }}">Join Video Call</a>
+    {% endif %}
+{% endfor %}
