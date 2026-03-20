@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TeleHealth App</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { padding-top: 60px; }
+        .call-notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 3px solid #dc3545;
+            border-radius: 15px;
+            padding: 30px;
+            z-index: 9999;
+            display: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            min-width: 400px;
+            text-align: center;
+        }
+        .call-notification h4 {
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+        .call-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 9998;
+            display: none;
+        }
+        .ringing {
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">TeleHealth</a>
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated %}
+                        <li class="nav-item"><span class="nav-link">User: {{ current_user.username }} ({{ current_user.role }})</span></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">Logout</a></li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">Login</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('register') }}">Register</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-info">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Call notification popup -->
+    <div id="callOverlay" class="call-overlay"></div>
+    <div id="callNotification" class="call-notification">
+        <div class="ringing">
+            <i class="bi bi-telephone-fill" style="font-size: 3rem; color: #dc3545;"></i>
+        </div>
+        <h4>Incoming Call!</h4>
+        <p style="font-size: 1.2rem;">Doctor <strong><span id="callerName"></span></strong> is calling you.</p>
+        <div class="mt-4">
+            <button class="btn btn-success btn-lg me-3" onclick="acceptCall()">
+                <i class="bi bi-telephone-fill"></i> Accept
+            </button>
+            <button class="btn btn-danger btn-lg" onclick="rejectCall()">
+                <i class="bi bi-telephone-x-fill"></i> Decline
+            </button>
+        </div>
+    </div>
+
+    <!-- Socket.IO Library -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <script>
+        // Global Socket Logic for Notifications
+        {% if current_user.is_authenticated %}
+            console.log("Initializing socket connection for user: {{ current_user.username }}");
+            const socket = io();
+            const CURRENT_USER_ID = "{{ current_user.id }}";
+            let incomingRoomId = null;
+
+            socket.on('connect', () => {
+                console.log('Socket connected:', socket.id);
+                // Join user-specific room for notifications
+                socket.emit('join', {room: 'user_' + CURRENT_USER_ID});
+                console.log('Joined notification room: user_' + CURRENT_USER_ID);
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Socket disconnected');
+            });
+
+            socket.on('incoming_call', (data) => {
+                console.log('Incoming call received:', data);
+                document.getElementById('callerName').innerText = data.caller;
+                incomingRoomId = data.room_id;
+                document.getElementById('callOverlay').style.display = 'block';
+                document.getElementById('callNotification').style.display = 'block';
+                
+                // Play notification sound (optional)
+                playRingtone();
+            });
+
+            socket.on('call_failed', (data) => {
+                console.log('Call failed:', data.message);
+                alert(data.message);
+            });
+
+            function acceptCall() {
+                console.log('Call accepted, joining room:', incomingRoomId);
+                stopRingtone();
+                window.location.href = "/video_call/" + incomingRoomId;
+            }
+
+            function rejectCall() {
+                console.log('Call rejected');
+                stopRingtone();
+                document.getElementById('callOverlay').style.display = 'none';
+                document.getElementById('callNotification').style.display = 'none';
+                incomingRoomId = null;
+                // Optional: Emit rejection event to server
+                socket.emit('call_rejected', {room_id: incomingRoomId});
+            }
+
+            // Optional: Ringtone functionality
+            let ringtoneInterval = null;
+            function playRingtone() {
+                // Simple beep effect using Audio API or just visual indication
+                ringtoneInterval = setInterval(() => {
+                    console.log('Ring...');
+                }, 1000);
+            }
+
+            function stopRingtone() {
+                if (ringtoneInterval) {
+                    clearInterval(ringtoneInterval);
+                    ringtoneInterval = null;
+                }
+            }
+        {% endif %}
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

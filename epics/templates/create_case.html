@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Submit New Health Issue</h2>
+<form method="post">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.symptoms.label }} 
+        {{ form.symptoms(class="form-control", rows=5) }}
+        <div class="form-text">Describe what you are feeling right now.</div>
+    </div>
+    {{ form.submit(class="btn btn-success") }}
+</form>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h3>Case Details</h3>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6 border-end">
+                <h4>Patient Medical History</h4>
+                <p><strong>Name:</strong> {{ case.patient_profile.name }}</p>
+                <p><strong>Age:</strong> {{ case.patient_profile.age }}</p>
+                <p><strong>Medical History:</strong></p>
+                <div class="alert alert-info">
+                    {{ case.patient_profile.medical_history }}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <h4>Current Issue</h4>
+                <div class="alert alert-warning">
+                    <strong>Symptoms:</strong><br>
+                    {{ case.symptoms }}
+                </div>
+                <hr>
+                <h5>Action</h5>
+                <button onclick="startVideoCall('{{ case.id }}', '{{ case.patient_profile.user_id }}')" 
+                        class="btn btn-lg btn-success">
+                    <i class="bi bi-camera-video-fill"></i> Start Video Consultation
+                </button>
+                <p class="text-muted mt-2"><small>This will notify the patient and start a video call.</small></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function startVideoCall(caseId, patientUserId) {
+        console.log('Starting video call for case:', caseId);
+        console.log('Patient user ID:', patientUserId);
+        
+        const roomId = "case_" + caseId;
+        
+        // Emit event to server to notify the patient
+        socket.emit('initiate_call', {
+            patient_user_id: patientUserId,
+            room_id: roomId
+        });
+        
+        console.log('Call initiation sent, redirecting to room:', roomId);
+        
+        // Redirect doctor to video call room
+        setTimeout(() => {
+            window.location.href = "/video_call/" + roomId;
+        }, 500);
+    }
+</script>
+{% endblock %}
