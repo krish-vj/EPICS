@@ -1,4 +1,5 @@
+epics/instance/*.db
 venv/
-.venv/
-__pycache__/
+instance/
 *.pyc
+__pycache__/
