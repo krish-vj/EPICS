@@ -1,57 +1,154 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-    <div class="card-header bg-primary text-white">
-        <h3>Case Details</h3>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-6 border-end">
-                <h4>Patient Medical History</h4>
-                <p><strong>Name:</strong> {{ case.patient_profile.name }}</p>
-                <p><strong>Age:</strong> {{ case.patient_profile.age }}</p>
-                <p><strong>Medical History:</strong></p>
-                <div class="alert alert-info">
-                    {{ case.patient_profile.medical_history }}
-                </div>
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">Case Details: {{ case.patient_profile.name }}</h3>
+                <span class="badge bg-light text-primary fs-6">{{ case.status|upper }}</span>
             </div>
-            <div class="col-md-6">
-                <h4>Current Issue</h4>
-                <div class="alert alert-warning">
-                    <strong>Symptoms:</strong><br>
-                    {{ case.symptoms }}
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 border-end">
+                        <h4 class="text-secondary border-bottom pb-2">Patient Profile</h4>
+                        <p><strong>Age:</strong> {{ case.patient_profile.age }}</p>
+                        <p><strong>Insurance:</strong> {{ case.patient_profile.insurance_info or 'N/A' }}</p>
+                        <p><strong>Budget Limit:</strong> {{ case.patient_profile.budget_limit or 'N/A' }}</p>
+                        <p><strong>Location:</strong> 
+                            {% if case.patient_profile.latitude and case.patient_profile.longitude %}
+                                {{ case.patient_profile.latitude }}, {{ case.patient_profile.longitude }}
+                            {% else %}
+                                Not set
+                            {% endif %}
+                        </p>
+                        <hr>
+                        <h5>Medical History</h5>
+                        <div class="alert alert-info">
+                            {{ case.patient_profile.medical_history or 'No history recorded.' }}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-5 border-end">
+                        <h4 class="text-secondary border-bottom pb-2">Current Case Info</h4>
+                        <div class="alert alert-warning">
+                            <strong>Symptoms:</strong><br>
+                            {{ case.symptoms }}
+                        </div>
+                        
+                        <h5 class="mt-4">Recorded Vitals</h5>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="p-2 border rounded text-center">
+                                    <small class="text-muted d-block">Blood Pressure</small>
+                                    <strong>{{ case.bp or '--' }}</strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 border rounded text-center">
+                                    <small class="text-muted d-block">Heart Rate</small>
+                                    <strong>{{ case.heart_rate or '--' }} <small>bpm</small></strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 border rounded text-center">
+                                    <small class="text-muted d-block">SpO2</small>
+                                    <strong>{{ case.spo2 or '--' }} <small>%</small></strong>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-2 border rounded text-center">
+                                    <small class="text-muted d-block">Temperature</small>
+                                    <strong>{{ case.temperature or '--' }} <small>°C</small></strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h5 class="mt-4">Medical Reports</h5>
+                        <ul class="list-group list-group-flush mb-3">
+                            {% for report in case.reports %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>{{ report.description }}</strong><br>
+                                    <small class="text-muted">{{ report.file_type }} - {{ report.created_at.strftime('%Y-%m-%d') }}</small>
+                                </div>
+                                <a href="{{ url_for('static', filename='uploads/reports/' + report.file_path) }}" target="_blank" class="btn btn-sm btn-outline-primary">View</a>
+                            </li>
+                            {% else %}
+                            <li class="list-group-item text-muted">No reports uploaded yet.</li>
+                            {% endfor %}
+                        </ul>
+
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <h6>Upload New Report</h6>
+                                <form action="{{ url_for('upload_report', case_id=case.id) }}" method="POST" enctype="multipart/form-data">
+                                    {{ report_form.hidden_tag() }}
+                                    <div class="mb-2">
+                                        {{ report_form.description(class="form-control form-control-sm", placeholder="Description (e.g., Blood Test)") }}
+                                    </div>
+                                    <div class="mb-2">
+                                        {{ report_form.report_file(class="form-control form-control-sm") }}
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-dark w-100">Upload</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <h4 class="text-secondary border-bottom pb-2">Collaboration</h4>
+                        <div class="mb-4">
+                            <h6>Video Consultation</h6>
+                            <button onclick="startVideoCall('{{ case.id }}', '{{ case.patient_profile.user_id }}')" 
+                                    class="btn btn-lg btn-success w-100">
+                                <i class="bi bi-camera-video-fill"></i> Join Call
+                            </button>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="mb-4">
+                            <h6>Case Handoff</h6>
+                            <p class="small text-muted">Assign a specialist to this case. Both you and the specialist will have access.</p>
+                            <form action="{{ url_for('assign_specialist', case_id=case.id) }}" method="POST">
+                                {{ assign_form.hidden_tag() }}
+                                <div class="mb-2">
+                                    {{ assign_form.specialist_id(class="form-select form-select-sm") }}
+                                </div>
+                                <button type="submit" class="btn btn-sm btn-outline-info w-100">Assign Specialist</button>
+                            </form>
+                        </div>
+
+                        <div class="mt-4">
+                            <h6>Assigned Doctors</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-person-check text-primary"></i> <strong>Generalist:</strong><br>
+                                    {{ case.generalist.user.username if case.generalist else 'Unassigned' }}
+                                </li>
+                                <li class="mt-2"><i class="bi bi-person-plus text-info"></i> <strong>Specialist:</strong><br>
+                                    {{ case.specialist.user.username if case.specialist else 'None assigned' }}
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
-                <hr>
-                <h5>Action</h5>
-                <button onclick="startVideoCall('{{ case.id }}', '{{ case.patient_profile.user_id }}')" 
-                        class="btn btn-lg btn-success">
-                    <i class="bi bi-camera-video-fill"></i> Start Video Consultation
-                </button>
-                <p class="text-muted mt-2"><small>This will notify the patient and start a video call.</small></p>
             </div>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
     function startVideoCall(caseId, patientUserId) {
         console.log('Starting video call for case:', caseId);
-        console.log('Patient user ID:', patientUserId);
-        
         const roomId = "case_" + caseId;
         
-        // Emit event to server to notify the patient
         socket.emit('initiate_call', {
             patient_user_id: patientUserId,
             room_id: roomId
         });
         
-        console.log('Call initiation sent, redirecting to room:', roomId);
-        
-        // Redirect doctor to video call room
         setTimeout(() => {
             window.location.href = "/video_call/" + roomId;
         }, 500);

@@ -1,44 +1,101 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Doctor Dashboard</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Doctor Dashboard</h2>
+    <div>
+        <a href="{{ url_for('doctor_profile') }}" class="btn btn-outline-primary">Edit Professional Profile</a>
+        <a href="{{ url_for('doctor_create_case') }}" class="btn btn-success">Open Case for Patient (Village Doctor)</a>
+    </div>
+</div>
 
 <div class="row">
-    <div class="col-md-6">
-        <div class="card mb-4">
-            <div class="card-header bg-success text-white">My Active Patients</div>
+    <div class="col-md-8">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">My Cases (As Generalist)</h5>
+            </div>
             <div class="card-body">
-                <ul class="list-group">
-                    {% for case in my_cases %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>{{ case.patient_profile.name }}</strong><br>
-                            <small>{{ case.symptoms|truncate(30) }}</small>
-                        </div>
-                        <a href="{{ url_for('view_case', case_id=case.id) }}" class="btn btn-primary btn-sm">View & Call</a>
-                    </li>
-                    {% else %}
-                    <li class="list-group-item">No active cases.</li>
-                    {% endfor %}
-                </ul>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Symptoms</th>
+                                <th>Specialist Assigned</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for case in my_general_cases %}
+                            <tr>
+                                <td><strong>{{ case.patient_profile.name }}</strong></td>
+                                <td><small>{{ case.symptoms|truncate(40) }}</small></td>
+                                <td>{{ case.specialist.user.username if case.specialist else 'None' }}</td>
+                                <td><span class="badge bg-info">{{ case.status }}</span></td>
+                                <td><a href="{{ url_for('view_case', case_id=case.id) }}" class="btn btn-primary btn-sm">View</a></td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="5" class="text-center text-muted">No cases opened by you.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Cases Assigned to Me (As Specialist)</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Symptoms</th>
+                                <th>Generalist</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for case in my_specialist_cases %}
+                            <tr>
+                                <td><strong>{{ case.patient_profile.name }}</strong></td>
+                                <td><small>{{ case.symptoms|truncate(40) }}</small></td>
+                                <td>{{ case.generalist.user.username if case.generalist else 'N/A' }}</td>
+                                <td><a href="{{ url_for('view_case', case_id=case.id) }}" class="btn btn-primary btn-sm">View</a></td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center text-muted">No cases assigned to you as a specialist.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
     
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header bg-warning">Available Cases (Waiting List)</div>
+    <div class="col-md-4">
+        <div class="card shadow-sm border-warning">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">Waiting List (Open Cases)</h5>
+            </div>
             <div class="card-body">
-                <ul class="list-group">
+                <ul class="list-group list-group-flush">
                     {% for case in open_cases %}
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>{{ case.patient_profile.name }}</strong> ({{ case.patient_profile.age }} yrs)<br>
-                            <small>{{ case.symptoms|truncate(40) }}</small>
+                    <li class="list-group-item px-0">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong>{{ case.patient_profile.name }}</strong> ({{ case.patient_profile.age }} yrs)<br>
+                                <small class="text-muted">{{ case.symptoms|truncate(50) }}</small>
+                            </div>
+                            <a href="{{ url_for('accept_case', case_id=case.id) }}" class="btn btn-outline-dark btn-sm">Accept</a>
                         </div>
-                        <a href="{{ url_for('accept_case', case_id=case.id) }}" class="btn btn-outline-dark btn-sm">✔ Accept Case</a>
                     </li>
                     {% else %}
-                    <li class="list-group-item">No pending cases.</li>
+                    <li class="list-group-item px-0 text-center text-muted">No pending cases.</li>
                     {% endfor %}
                 </ul>
             </div>

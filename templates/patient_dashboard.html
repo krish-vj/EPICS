@@ -1,46 +1,93 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Patient Dashboard</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Patient Dashboard</h2>
+    <div class="btn-group">
+        <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-primary">Edit Medical Profile</a>
+        <a href="{{ url_for('create_case') }}" class="btn btn-success">Report New Symptoms</a>
+    </div>
+</div>
 
 <div class="row mb-4">
     <div class="col-md-12">
         {% if not profile.name %}
-            <div class="alert alert-danger">
-                Please <a href="{{ url_for('edit_profile') }}">complete your medical profile</a> before submitting cases.
+            <div class="alert alert-danger shadow-sm">
+                <strong>Incomplete Profile!</strong> Please <a href="{{ url_for('edit_profile') }}" class="alert-link">complete your medical profile</a> including history and budget info before submitting cases.
             </div>
         {% else %}
-            <div class="d-flex justify-content-between bg-light p-3 rounded">
-                <div>
-                    <strong>My Profile:</strong> {{ profile.name }} ({{ profile.age }} yrs)<br>
-                    <small>History: {{ profile.medical_history|truncate(50) }}</small>
-                </div>
-                <div>
-                    <a href="{{ url_for('edit_profile') }}" class="btn btn-secondary btn-sm">Edit History</a>
-                    <a href="{{ url_for('create_case') }}" class="btn btn-primary btn-sm">Report New Symptoms</a>
+            <div class="card shadow-sm border-0 bg-light">
+                <div class="card-body row align-items-center">
+                    <div class="col-md-3 border-end">
+                        <small class="text-muted d-block">Full Name</small>
+                        <strong>{{ profile.name }}</strong> ({{ profile.age }} yrs)
+                    </div>
+                    <div class="col-md-3 border-end">
+                        <small class="text-muted d-block">Insurance & Budget</small>
+                        <strong>{{ profile.insurance_info or 'None' }}</strong> / {{ profile.budget_limit or 'N/A' }}
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">Medical History Summary</small>
+                        <p class="mb-0 text-truncate">{{ profile.medical_history or 'No history recorded.' }}</p>
+                    </div>
                 </div>
             </div>
         {% endif %}
     </div>
 </div>
 
-<h3>My Cases</h3>
-<table class="table table-striped">
-    <thead><tr><th>Date</th><th>Symptoms</th><th>Status</th><th>Doctor</th></tr></thead>
-    <tbody>
-        {% for case in cases %}
-        <tr>
-            <td>{{ case.created_at.strftime('%Y-%m-%d') }}</td>
-            <td>{{ case.symptoms }}</td>
-            <td>
-                {% if case.status == 'open' %}
-                    <span class="badge bg-warning text-dark">Waiting for Doctor</span>
-                {% else %}
-                    <span class="badge bg-success">Active</span>
-                {% endif %}
-            </td>
-            <td>{{ case.doctor_profile.user.username if case.doctor_profile else '-' }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<h3 class="mb-3">My Medical Cases</h3>
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Date</th>
+                        <th>Symptoms</th>
+                        <th>Vitals Summary</th>
+                        <th>Status</th>
+                        <th>Care Team</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for case in cases %}
+                    <tr class="align-middle">
+                        <td>{{ case.created_at.strftime('%Y-%m-%d') }}</td>
+                        <td>
+                            <strong>{{ case.symptoms|truncate(50) }}</strong><br>
+                            {% if case.is_village_doctor_initiated %}
+                                <span class="badge bg-secondary">Doctor Initiated</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="small">
+                                BP: <strong>{{ case.bp or '--' }}</strong> | 
+                                Temp: <strong>{{ case.temperature or '--' }}°C</strong><br>
+                                SpO2: <strong>{{ case.spo2 or '--' }}%</strong>
+                            </div>
+                        </td>
+                        <td>
+                            {% if case.status == 'open' %}
+                                <span class="badge bg-warning text-dark">Waiting for Doctor</span>
+                            {% elif case.status == 'active' %}
+                                <span class="badge bg-success">Active Case</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ case.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="small">
+                                Generalist: <strong>{{ case.generalist.user.username if case.generalist else '-' }}</strong><br>
+                                Specialist: <strong>{{ case.specialist.user.username if case.specialist else '-' }}</strong>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center py-4 text-muted">You haven't reported any symptoms yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -5,14 +5,20 @@ monkey.patch_all()
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_socketio import SocketIO, join_room, leave_room, emit
-from models import db, User, PatientProfile, DoctorProfile, Case
-from forms import LoginForm, RegisterForm, PatientHistoryForm, CaseForm
+from models import db, User, PatientProfile, DoctorProfile, Case, Report
+from forms import LoginForm, RegisterForm, PatientProfileForm, DoctorProfileForm, CaseForm, VillageDoctorCaseForm, ReportUploadForm, AssignSpecialistForm
 import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'mysql+pymysql://root:password@localhost/telehealth')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'static/uploads/reports'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit
+
+# Ensure upload directory exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 db.init_app(app)
 login_manager = LoginManager()
@@ -119,7 +125,7 @@ def patient_dashboard():
 def edit_profile():
     if current_user.role != 'patient': return redirect(url_for('index'))
     profile = current_user.patient_profile
-    form = PatientHistoryForm(obj=profile)
+    form = PatientProfileForm(obj=profile)
     if form.validate_on_submit():
         form.populate_obj(profile)
         db.session.commit()
@@ -135,7 +141,11 @@ def create_case():
     if form.validate_on_submit():
         new_case = Case(
             patient_profile_id=current_user.patient_profile.id,
-            symptoms=form.symptoms.data
+            symptoms=form.symptoms.data,
+            bp=form.bp.data,
+            heart_rate=form.heart_rate.data,
+            spo2=form.spo2.data,
+            temperature=form.temperature.data
         )
         db.session.add(new_case)
         db.session.commit()
@@ -151,9 +161,57 @@ def doctor_dashboard():
     doc_profile = current_user.doctor_profile
     if not doc_profile.is_approved:
         return render_template('doctor_pending.html')
+    
+    # Show cases where doctor is either generalist or specialist
     open_cases = Case.query.filter_by(status='open').all()
-    my_cases = Case.query.filter_by(doctor_profile_id=doc_profile.id).all()
-    return render_template('doctor_dashboard.html', open_cases=open_cases, my_cases=my_cases)
+    my_general_cases = Case.query.filter_by(doctor_profile_id=doc_profile.id).all()
+    my_specialist_cases = Case.query.filter_by(specialist_profile_id=doc_profile.id).all()
+    
+    return render_template('doctor_dashboard.html', 
+                           open_cases=open_cases, 
+                           my_general_cases=my_general_cases,
+                           my_specialist_cases=my_specialist_cases)
+
+@app.route('/doctor/profile', methods=['GET', 'POST'])
+@login_required
+def doctor_profile():
+    if current_user.role != 'doctor': return redirect(url_for('index'))
+    profile = current_user.doctor_profile
+    form = DoctorProfileForm(obj=profile)
+    if form.validate_on_submit():
+        form.populate_obj(profile)
+        db.session.commit()
+        flash('Profile updated.')
+        return redirect(url_for('doctor_dashboard'))
+    return render_template('edit_profile.html', form=form, role='doctor')
+
+@app.route('/doctor/create_case', methods=['GET', 'POST'])
+@login_required
+def doctor_create_case():
+    """Village Doctor flow: Open case on behalf of patient"""
+    if current_user.role != 'doctor': return redirect(url_for('index'))
+    form = VillageDoctorCaseForm()
+    # Populate patient list
+    patients = PatientProfile.query.all()
+    form.patient_id.choices = [(p.id, f"{p.name} (Age: {p.age})") for p in patients]
+    
+    if form.validate_on_submit():
+        new_case = Case(
+            patient_profile_id=form.patient_id.data,
+            doctor_profile_id=current_user.doctor_profile.id,
+            symptoms=form.symptoms.data,
+            bp=form.bp.data,
+            heart_rate=form.heart_rate.data,
+            spo2=form.spo2.data,
+            temperature=form.temperature.data,
+            is_village_doctor_initiated=True,
+            status='active'
+        )
+        db.session.add(new_case)
+        db.session.commit()
+        flash('Case created on behalf of patient.')
+        return redirect(url_for('doctor_dashboard'))
+    return render_template('create_case.html', form=form, is_doctor=True)
 
 @app.route('/doctor/accept/<case_id>')
 @login_required
@@ -167,15 +225,68 @@ def accept_case(case_id):
         flash('Case accepted.')
     return redirect(url_for('doctor_dashboard'))
 
-@app.route('/doctor/case/<case_id>')
+@app.route('/doctor/case/<case_id>', methods=['GET', 'POST'])
 @login_required
 def view_case(case_id):
     if current_user.role != 'doctor': return redirect(url_for('index'))
     case = db.session.get(Case, case_id)
-    if case.doctor_profile_id != current_user.doctor_profile.id:
+    doc_id = current_user.doctor_profile.id
+    
+    # Check if doctor is assigned (either as generalist or specialist)
+    if case.doctor_profile_id != doc_id and case.specialist_profile_id != doc_id:
         flash("You are not assigned to this case.")
         return redirect(url_for('doctor_dashboard'))
-    return render_template('case_detail.html', case=case)
+    
+    report_form = ReportUploadForm()
+    assign_form = AssignSpecialistForm()
+    
+    # Populate specialist list (exclude current user)
+    specialists = DoctorProfile.query.filter(DoctorProfile.id != doc_id, DoctorProfile.is_approved == True).all()
+    assign_form.specialist_id.choices = [(d.id, f"{d.user.username} - {d.specialization}") for d in specialists]
+    
+    return render_template('case_detail.html', case=case, report_form=report_form, assign_form=assign_form)
+
+@app.route('/doctor/case/<case_id>/upload_report', methods=['POST'])
+@login_required
+def upload_report(case_id):
+    if current_user.role != 'doctor': return redirect(url_for('index'))
+    case = db.session.get(Case, case_id)
+    form = ReportUploadForm()
+    if form.validate_on_submit():
+        file = form.report_file.data
+        if file:
+            filename = secure_filename(f"{case_id}_{datetime.utcnow().timestamp()}_{file.filename}")
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            
+            report = Report(
+                case_id=case_id,
+                file_path=filename,
+                file_type=file.filename.split('.')[-1].upper(),
+                description=form.description.data
+            )
+            db.session.add(report)
+            db.session.commit()
+            flash('Report uploaded successfully.')
+    return redirect(url_for('view_case', case_id=case_id))
+
+@app.route('/doctor/case/<case_id>/assign_specialist', methods=['POST'])
+@login_required
+def assign_specialist(case_id):
+    if current_user.role != 'doctor': return redirect(url_for('index'))
+    case = db.session.get(Case, case_id)
+    form = AssignSpecialistForm()
+    
+    # Populate choices again for validation
+    doc_id = current_user.doctor_profile.id
+    specialists = DoctorProfile.query.filter(DoctorProfile.id != doc_id, DoctorProfile.is_approved == True).all()
+    form.specialist_id.choices = [(d.id, f"{d.user.username} - {d.specialization}") for d in specialists]
+    
+    if form.validate_on_submit():
+        case.specialist_profile_id = form.specialist_id.data
+        db.session.commit()
+        flash('Specialist assigned to the case.')
+    return redirect(url_for('view_case', case_id=case_id))
 
 @app.route('/video_call/<room_id>')
 @login_required
