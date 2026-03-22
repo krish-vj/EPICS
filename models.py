@@ -13,7 +13,7 @@ class User(UserMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)
     username = db.Column(db.String(64), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))
+    password_hash = db.Column(db.String(255))
     role = db.Column(db.String(20))  # 'admin', 'doctor', 'patient'
     
     # Relationships

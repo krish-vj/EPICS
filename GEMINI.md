@@ -13,7 +13,7 @@ This project is a comprehensive medical platform designed to connect patients, g
 ## Current Technical Stack (Prototype)
 
 - **Backend:** [Flask](https://flask.palletsprojects.com/) (Python 3.12)
-- **Database:** [SQLite](https://www.sqlite.org/) with [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/)
+- **Database:** [MySQL](https://www.mysql.com/) with [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/) (using `pymysql`)
 - **Real-time Communication:** [Flask-SocketIO](https://flask-socketio.readthedocs.io/) (using `gevent` for async support)
 - **Authentication:** [Flask-Login](https://flask-login.readthedocs.io/)
 - **Frontend:** HTML5, CSS3, JavaScript (WebRTC for video calls)

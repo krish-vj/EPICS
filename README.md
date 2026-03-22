@@ -20,7 +20,7 @@ Beyond immediate care, the platform tracks medical history across a patient's li
 ## 🛠️ Tech Stack (Current Prototype)
 
 - **Backend:** [Flask](https://flask.palletsprojects.com/) (Python 3.12)
-- **Database:** SQLite with [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/)
+- **Database:** MySQL with [Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/) (using `pymysql`)
 - **Real-time Communication:** [Flask-SocketIO](https://flask-socketio.readthedocs.io/) (with `gevent`)
 - **Video Calling:** WebRTC with STUN servers
 - **Authentication:** [Flask-Login](https://flask-login.readthedocs.io/)

@@ -10,8 +10,8 @@ from forms import LoginForm, RegisterForm, PatientHistoryForm, CaseForm
 import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'dev_secret_key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///telehealth.db'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'mysql+pymysql://root:password@localhost/telehealth')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
