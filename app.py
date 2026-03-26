@@ -9,7 +9,8 @@ from models import db, User, PatientProfile, DoctorProfile, Case, Report
 from forms import LoginForm, RegisterForm, PatientProfileForm, DoctorProfileForm, CaseForm, VillageDoctorCaseForm, ReportUploadForm, AssignSpecialistForm
 import os
 from werkzeug.utils import secure_filename
-
+from dotenv import load_dotenv
+load_dotenv()  # This loads the variables from .env into os.environ
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev_secret_key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'mysql+pymysql://root:password@localhost/telehealth')
