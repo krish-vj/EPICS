@@ -15,7 +15,7 @@
                     {{ form.hidden_tag() }}
                     
                     {% for field in form if field.name not in ['csrf_token', 'submit'] %}
-                    <div class="mb-3">
+                    <div class="mb-3 position-relative">
                         {% if field.type == 'BooleanField' %}
                             <div class="form-check">
                                 {{ field(class="form-check-input") }}
@@ -23,7 +23,10 @@
                             </div>
                         {% else %}
                             {{ field.label(class="form-label") }}
-                            {% if field.type == 'TextAreaField' %}
+                            {% if field.name == 'patient_username' %}
+                                {{ field(class="form-control", id="patient-search", autocomplete="off", placeholder="Start typing username...") }}
+                                <div id="patient-results" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                            {% elif field.type == 'TextAreaField' %}
                                 {{ field(class="form-control", rows=4) }}
                             {% else %}
                                 {{ field(class="form-control") }}
@@ -47,4 +50,52 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const patientInput = document.getElementById('patient-search');
+    const patientResults = document.getElementById('patient-results');
+
+    if (patientInput) {
+        patientInput.addEventListener('input', async (e) => {
+            const q = e.target.value;
+            if (q.length < 2) {
+                patientResults.classList.add('d-none');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/search_patients?q=${q}`);
+                const data = await res.json();
+                
+                patientResults.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(item => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action py-2';
+                        btn.innerHTML = `<strong>${item.username}</strong> <span class="text-muted">(${item.name}, Age: ${item.age})</span>`;
+                        btn.onclick = () => {
+                            patientInput.value = item.username;
+                            patientResults.classList.add('d-none');
+                        };
+                        patientResults.appendChild(btn);
+                    });
+                    patientResults.classList.remove('d-none');
+                } else {
+                    patientResults.classList.add('d-none');
+                }
+            } catch (err) {
+                console.error('Patient search error:', err);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!patientInput.contains(e.target) && !patientResults.contains(e.target)) {
+                patientResults.classList.add('d-none');
+            }
+        });
+    }
+</script>
 {% endblock %}

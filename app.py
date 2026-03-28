@@ -8,6 +8,9 @@ from flask_socketio import SocketIO, join_room, leave_room, emit
 from models import db, User, PatientProfile, DoctorProfile, Case, Report
 from forms import LoginForm, RegisterForm, PatientProfileForm, DoctorProfileForm, CaseForm, VillageDoctorCaseForm, ReportUploadForm, AssignSpecialistForm
 import os
+import math
+from datetime import datetime
+import google.generativeai as genai
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 load_dotenv()  # This loads the variables from .env into os.environ
@@ -36,6 +39,45 @@ user_sockets = {}  # Maps user_id to socket_id
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, user_id)
+
+@app.route('/api/search_patients')
+@login_required
+def search_patients():
+    q = request.args.get('q', '')
+    if len(q) < 2: return jsonify([])
+    
+    # Search for patients by username
+    users = User.query.filter(User.role == 'patient', User.username.ilike(f'%{q}%')).limit(10).all()
+    results = []
+    for u in users:
+        if u.patient_profile:
+            results.append({
+                'username': u.username,
+                'name': u.patient_profile.name,
+                'age': u.patient_profile.age
+            })
+    return jsonify(results)
+
+@app.route('/api/search_specialists')
+@login_required
+def search_specialists():
+    q = request.args.get('q', '')
+    if len(q) < 2: return jsonify([])
+    
+    # Search for approved doctors by username or specialization
+    users = User.query.join(DoctorProfile).filter(
+        User.role == 'doctor',
+        DoctorProfile.is_approved == True,
+        (User.username.ilike(f'%{q}%') | DoctorProfile.specialization.ilike(f'%{q}%'))
+    ).limit(10).all()
+    
+    results = []
+    for u in users:
+        results.append({
+            'username': u.username,
+            'specialization': u.doctor_profile.specialization
+        })
+    return jsonify(results)
 
 # --- Routes ---
 
@@ -189,16 +231,18 @@ def doctor_profile():
 @app.route('/doctor/create_case', methods=['GET', 'POST'])
 @login_required
 def doctor_create_case():
-    """Village Doctor flow: Open case on behalf of patient"""
+    """Village Doctor flow: Open case on behalf of patient using username"""
     if current_user.role != 'doctor': return redirect(url_for('index'))
     form = VillageDoctorCaseForm()
-    # Populate patient list
-    patients = PatientProfile.query.all()
-    form.patient_id.choices = [(p.id, f"{p.name} (Age: {p.age})") for p in patients]
     
     if form.validate_on_submit():
+        patient_user = User.query.filter_by(username=form.patient_username.data, role='patient').first()
+        if not patient_user or not patient_user.patient_profile:
+            flash('Patient username not found.')
+            return render_template('create_case.html', form=form, is_doctor=True)
+            
         new_case = Case(
-            patient_profile_id=form.patient_id.data,
+            patient_profile_id=patient_user.patient_profile.id,
             doctor_profile_id=current_user.doctor_profile.id,
             symptoms=form.symptoms.data,
             bp=form.bp.data,
@@ -210,7 +254,7 @@ def doctor_create_case():
         )
         db.session.add(new_case)
         db.session.commit()
-        flash('Case created on behalf of patient.')
+        flash(f'Case created on behalf of {patient_user.username}.')
         return redirect(url_for('doctor_dashboard'))
     return render_template('create_case.html', form=form, is_doctor=True)
 
@@ -240,10 +284,6 @@ def view_case(case_id):
     
     report_form = ReportUploadForm()
     assign_form = AssignSpecialistForm()
-    
-    # Populate specialist list (exclude current user)
-    specialists = DoctorProfile.query.filter(DoctorProfile.id != doc_id, DoctorProfile.is_approved == True).all()
-    assign_form.specialist_id.choices = [(d.id, f"{d.user.username} - {d.specialization}") for d in specialists]
     
     return render_template('case_detail.html', case=case, report_form=report_form, assign_form=assign_form)
 
@@ -278,15 +318,15 @@ def assign_specialist(case_id):
     case = db.session.get(Case, case_id)
     form = AssignSpecialistForm()
     
-    # Populate choices again for validation
-    doc_id = current_user.doctor_profile.id
-    specialists = DoctorProfile.query.filter(DoctorProfile.id != doc_id, DoctorProfile.is_approved == True).all()
-    form.specialist_id.choices = [(d.id, f"{d.user.username} - {d.specialization}") for d in specialists]
-    
     if form.validate_on_submit():
-        case.specialist_profile_id = form.specialist_id.data
+        specialist_user = User.query.filter_by(username=form.specialist_username.data, role='doctor').first()
+        if not specialist_user or not specialist_user.doctor_profile:
+            flash('Specialist username not found.')
+            return redirect(url_for('view_case', case_id=case_id))
+            
+        case.specialist_profile_id = specialist_user.doctor_profile.id
         db.session.commit()
-        flash('Specialist assigned to the case.')
+        flash(f'Specialist {specialist_user.username} assigned to the case.')
     return redirect(url_for('view_case', case_id=case_id))
 
 @app.route('/video_call/<room_id>')

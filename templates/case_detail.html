@@ -108,12 +108,31 @@
                         <hr>
                         
                         <div class="mb-4">
+                            <h6>AI Recommendation</h6>
+                            <p class="small text-muted">Get AI-powered specialist recommendation based on symptoms and vitals.</p>
+                            <button id="get-recommendation-btn" class="btn btn-sm btn-info w-100" onclick="getRecommendation('{{ case.id }}')">
+                                <i class="bi bi-robot"></i> Get AI Recommendation
+                            </button>
+                            
+                            <div id="ai-recommendation-results" class="mt-3 d-none">
+                                <div class="p-2 border rounded bg-white">
+                                    <p class="mb-1 small"><strong>Recommended:</strong> <span id="rec-category" class="badge bg-success"></span></p>
+                                    <hr class="my-1">
+                                    <div id="rec-doctors-list" class="small">
+                                        <!-- Doctor recommendations will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
                             <h6>Case Handoff</h6>
-                            <p class="small text-muted">Assign a specialist to this case. Both you and the specialist will have access.</p>
+                            <p class="small text-muted">Assign a specialist by username. Use AI suggestions for help.</p>
                             <form action="{{ url_for('assign_specialist', case_id=case.id) }}" method="POST">
                                 {{ assign_form.hidden_tag() }}
-                                <div class="mb-2">
-                                    {{ assign_form.specialist_id(class="form-select form-select-sm") }}
+                                <div class="mb-2 position-relative">
+                                    {{ assign_form.specialist_username(class="form-control form-control-sm", id="specialist-search", placeholder="Type username...", autocomplete="off") }}
+                                    <div id="specialist-results" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
                                 </div>
                                 <button type="submit" class="btn btn-sm btn-outline-info w-100">Assign Specialist</button>
                             </form>
@@ -152,6 +171,105 @@
         setTimeout(() => {
             window.location.href = "/video_call/" + roomId;
         }, 500);
+    }
+
+    async function getRecommendation(caseId) {
+        const btn = document.getElementById('get-recommendation-btn');
+        const resultsDiv = document.getElementById('ai-recommendation-results');
+        const categorySpan = document.getElementById('rec-category');
+        const doctorsList = document.getElementById('rec-doctors-list');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analyzing...';
+        
+        try {
+            const response = await fetch(`/doctor/recommend_doctor/${caseId}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            
+            categorySpan.innerText = data.recommended_category;
+            doctorsList.innerHTML = '';
+            
+            if (data.doctors.length === 0) {
+                doctorsList.innerHTML = '<p class="text-muted mb-0 small">No matching doctors found.</p>';
+            } else {
+                data.doctors.forEach(doc => {
+                    const docEl = document.createElement('div');
+                    docEl.className = 'mb-2 p-1 border-bottom d-flex justify-content-between align-items-center';
+                    docEl.innerHTML = `
+                        <div style="font-size: 0.8rem;">
+                            <strong>${doc.name}</strong> (${doc.specialization})<br>
+                            <small class="text-muted">Dist: ${doc.distance_km}km | Active: ${doc.active_cases}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-success py-0 px-1" style="font-size: 0.7rem;" onclick="selectSpecialist('${doc.name}')">Select</button>
+                    `;
+                    doctorsList.appendChild(docEl);
+                });
+            }
+            
+            resultsDiv.classList.remove('d-none');
+        } catch (err) {
+            console.error('Failed to get recommendation:', err);
+            alert('An error occurred while getting recommendation.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-robot"></i> Get AI Recommendation';
+        }
+    }
+
+    function selectSpecialist(username) {
+        const input = document.getElementById('specialist-search');
+        if (input) {
+            input.value = username;
+            document.getElementById('specialist-results').classList.add('d-none');
+        }
+    }
+
+    // Real-time search for specialists
+    const specialistInput = document.getElementById('specialist-search');
+    const specialistResults = document.getElementById('specialist-results');
+
+    if (specialistInput) {
+        specialistInput.addEventListener('input', async (e) => {
+            const q = e.target.value;
+            if (q.length < 2) {
+                specialistResults.classList.add('d-none');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/search_specialists?q=${q}`);
+                const data = await res.json();
+                
+                specialistResults.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(item => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action small py-1';
+                        btn.innerHTML = `<strong>${item.username}</strong> <span class="text-muted">(${item.specialization})</span>`;
+                        btn.onclick = () => selectSpecialist(item.username);
+                        specialistResults.appendChild(btn);
+                    });
+                    specialistResults.classList.remove('d-none');
+                } else {
+                    specialistResults.classList.add('d-none');
+                }
+            } catch (err) {
+                console.error('Search error:', err);
+            }
+        });
+
+        // Close results when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!specialistInput.contains(e.target) && !specialistResults.contains(e.target)) {
+                specialistResults.classList.add('d-none');
+            }
+        });
     }
 </script>
 {% endblock %}

@@ -43,7 +43,7 @@ class CaseForm(FlaskForm):
     submit = SubmitField('Submit Case')
 
 class VillageDoctorCaseForm(CaseForm):
-    patient_id = SelectField('Select Patient', coerce=int, validators=[DataRequired()])
+    patient_username = StringField('Patient Username', validators=[DataRequired()])
     is_village_doctor_initiated = BooleanField('Opening on behalf of patient', default=True)
 
 class ReportUploadForm(FlaskForm):
@@ -55,5 +55,5 @@ class ReportUploadForm(FlaskForm):
     submit = SubmitField('Upload Report')
 
 class AssignSpecialistForm(FlaskForm):
-    specialist_id = SelectField('Select Specialist', coerce=int, validators=[DataRequired()])
+    specialist_username = StringField('Specialist Username', validators=[DataRequired()])
     submit = SubmitField('Assign Specialist')
