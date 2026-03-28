@@ -86,3 +86,12 @@ class ReportUploadForm(FlaskForm):
 class AssignSpecialistForm(FlaskForm):
     specialist_username = StringField('Specialist Username', validators=[DataRequired()])
     submit = SubmitField('Assign Specialist')
+
+class PrescriptionForm(FlaskForm):
+    medicine_details = TextAreaField('Prescription / Instructions', validators=[DataRequired()])
+    submit = SubmitField('Add Prescription')
+
+class ScheduleMeetingForm(FlaskForm):
+    meeting_time = StringField('Meeting Date & Time', render_kw={"placeholder": "e.g. 2026-04-10 14:30"}, validators=[DataRequired()])
+    notes = StringField('With Whom / Topic', validators=[DataRequired()])
+    submit = SubmitField('Schedule Meeting')

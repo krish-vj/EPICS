@@ -92,6 +92,11 @@ class Case(db.Model):
     status = db.Column(db.String(20), default='open') # 'open', 'active', 'closed'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Phase 2: Prescriptions and Scheduling
+    prescriptions = db.Column(db.Text, nullable=True) # Format: Date: Text \with
+    next_meeting_time = db.Column(db.DateTime, nullable=True)
+    next_meeting_notes = db.Column(db.String(255), nullable=True)
+    
     reports = db.relationship('Report', backref='case', lazy=True)
 
 class Report(db.Model):

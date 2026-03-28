@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from flask_socketio import SocketIO, join_room, leave_room, emit
 from models import db, User, PatientProfile, DoctorProfile, Case, Report
-from forms import LoginForm, RegisterForm, PatientProfileForm, DoctorProfileForm, CaseForm, VillageDoctorCaseForm, ReportUploadForm, AssignSpecialistForm
+from forms import LoginForm, RegisterForm, PatientProfileForm, DoctorProfileForm, CaseForm, VillageDoctorCaseForm, ReportUploadForm, AssignSpecialistForm, PrescriptionForm, ScheduleMeetingForm
 import os
 import math
 from datetime import datetime
@@ -370,19 +370,85 @@ def accept_case(case_id):
 @app.route('/doctor/case/<case_id>', methods=['GET', 'POST'])
 @login_required
 def view_case(case_id):
-    if current_user.role != 'doctor': return redirect(url_for('index'))
     case = db.session.get(Case, case_id)
-    doc_id = current_user.doctor_profile.id
+    if not case:
+        flash("Case not found.")
+        return redirect(url_for('index'))
+
+    # Permission Check:
+    # 1. Doctors assigned to the case
+    # 2. The patient who owns the case
+    is_assigned_doctor = False
+    if current_user.role == 'doctor':
+        doc_id = current_user.doctor_profile.id
+        if case.doctor_profile_id == doc_id or case.specialist_profile_id == doc_id:
+            is_assigned_doctor = True
     
-    # Check if doctor is assigned (either as generalist or specialist)
-    if case.doctor_profile_id != doc_id and case.specialist_profile_id != doc_id:
-        flash("You are not assigned to this case.")
-        return redirect(url_for('doctor_dashboard'))
+    is_owner_patient = False
+    if current_user.role == 'patient':
+        if case.patient_profile_id == current_user.patient_profile.id:
+            is_owner_patient = True
+
+    if not (is_assigned_doctor or is_owner_patient):
+        flash("You do not have permission to view this case.")
+        return redirect(url_for('index'))
     
     report_form = ReportUploadForm()
     assign_form = AssignSpecialistForm()
+    prescription_form = PrescriptionForm()
+    meeting_form = ScheduleMeetingForm()
     
-    return render_template('case_detail.html', case=case, report_form=report_form, assign_form=assign_form)
+    # Parse prescriptions for frontend
+    parsed_prescriptions = []
+    if case.prescriptions:
+        raw_list = case.prescriptions.split('\with(')
+        for item in raw_list:
+            if ')' in item:
+                parts = item.split(')', 1)
+                if len(parts) == 2:
+                    parsed_prescriptions.append({'date': parts[0], 'text': parts[1]})
+    
+    return render_template('case_detail.html', 
+                           case=case, 
+                           report_form=report_form, 
+                           assign_form=assign_form,
+                           prescription_form=prescription_form,
+                           meeting_form=meeting_form,
+                           parsed_prescriptions=parsed_prescriptions[::-1]) # Show newest first
+
+@app.route('/doctor/case/<case_id>/add_prescription', methods=['POST'])
+@login_required
+def add_prescription(case_id):
+    if current_user.role != 'doctor': return redirect(url_for('index'))
+    case = db.session.get(Case, case_id)
+    form = PrescriptionForm()
+    if form.validate_on_submit():
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+        new_entry = f"\with({now_str}){form.medicine_details.data}"
+        if case.prescriptions:
+            case.prescriptions += new_entry
+        else:
+            case.prescriptions = new_entry
+        db.session.commit()
+        flash('Prescription added.')
+    return redirect(url_for('view_case', case_id=case_id))
+
+@app.route('/doctor/case/<case_id>/schedule_meeting', methods=['POST'])
+@login_required
+def schedule_meeting(case_id):
+    if current_user.role != 'doctor': return redirect(url_for('index'))
+    case = db.session.get(Case, case_id)
+    form = ScheduleMeetingForm()
+    if form.validate_on_submit():
+        try:
+            m_time = datetime.strptime(form.meeting_time.data, '%Y-%m-%d %H:%M')
+            case.next_meeting_time = m_time
+            case.next_meeting_notes = form.notes.data
+            db.session.commit()
+            flash('Meeting scheduled.')
+        except ValueError:
+            flash('Invalid date format. Please use YYYY-MM-DD HH:MM')
+    return redirect(url_for('view_case', case_id=case_id))
 
 @app.route('/doctor/case/<case_id>/close', methods=['POST'])
 @login_required

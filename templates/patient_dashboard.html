@@ -81,6 +81,9 @@
                                 Specialist: <strong>{{ case.specialist.user.username if case.specialist else '-' }}</strong>
                             </div>
                         </td>
+                        <td>
+                            <a href="{{ url_for('view_case', case_id=case.id) }}" class="btn btn-sm btn-outline-primary">View Details</a>
+                        </td>
                     </tr>
                     {% else %}
                     <tr><td colspan="5" class="text-center py-4 text-muted">You haven't reported any symptoms yet.</td></tr>

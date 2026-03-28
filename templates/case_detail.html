@@ -29,9 +29,50 @@
                     </div>
                     
                     <div class="col-md-5 border-end">
-                        <h4 class="text-secondary border-bottom pb-2">Current Case Info</h4>
+                        <h4 class="text-secondary border-bottom pb-2">Treatment & History</h4>
+                        
+                        <div class="mb-4">
+                            <h5 class="d-flex justify-content-between align-items-center">
+                                Prescription History
+                                {% if current_user.role == 'doctor' %}
+                                <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#newPrescriptionForm">
+                                    <i class="bi bi-plus-lg"></i> New
+                                </button>
+                                {% endif %}
+                            </h5>
+                            
+                            {% if current_user.role == 'doctor' %}
+                            <div class="collapse mb-3" id="newPrescriptionForm">
+                                <div class="card card-body bg-light">
+                                    <form action="{{ url_for('add_prescription', case_id=case.id) }}" method="POST">
+                                        {{ prescription_form.hidden_tag() }}
+                                        <div class="mb-2">
+                                            {{ prescription_form.medicine_details(class="form-control form-control-sm", rows=3, placeholder="Medicine, dosage, etc.") }}
+                                        </div>
+                                        <button type="submit" class="btn btn-sm btn-success w-100">Save Prescription</button>
+                                    </form>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <div class="prescription-list" style="max-height: 300px; overflow-y: auto;">
+                                {% for p in parsed_prescriptions %}
+                                <div class="card mb-2 border-start border-4 border-success">
+                                    <div class="card-body p-2">
+                                        <div class="d-flex justify-content-between small text-muted mb-1">
+                                            <span><i class="bi bi-calendar-event"></i> {{ p.date }}</span>
+                                        </div>
+                                        <p class="mb-0 small">{{ p.text }}</p>
+                                    </div>
+                                </div>
+                                {% else %}
+                                <p class="text-muted small">No prescriptions yet.</p>
+                                {% endfor %}
+                            </div>
+                        </div>
+
                         <div class="alert alert-warning">
-                            <strong>Symptoms:</strong><br>
+                            <strong>Original Symptoms:</strong><br>
                             {{ case.symptoms }}
                         </div>
                         
@@ -78,6 +119,7 @@
                             {% endfor %}
                         </ul>
 
+                        {% if current_user.role == 'doctor' %}
                         <div class="card bg-light">
                             <div class="card-body">
                                 <h6>Upload New Report</h6>
@@ -93,6 +135,7 @@
                                 </form>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
 
                     <div class="col-md-3">
@@ -101,9 +144,11 @@
                             <h6>Video Consultation</h6>
                             <button onclick="startVideoCall('{{ case.id }}', '{{ case.patient_profile.user_id }}')" 
                                     class="btn btn-lg btn-success w-100 mb-2">
-                                <i class="bi bi-camera-video-fill"></i> Join Call
+                                <i class="bi bi-camera-video-fill"></i> {% if current_user.role == 'doctor' %}Join Call{% else %}Join Room{% endif %}
                             </button>
-                            <div class="d-flex gap-2">
+                            
+                            {% if current_user.role == 'doctor' %}
+                            <div class="d-flex gap-2 mb-3">
                                 <form action="{{ url_for('close_case', case_id=case.id) }}" method="POST" class="flex-fill">
                                     <button type="submit" class="btn btn-outline-dark w-100" onclick="return confirm('Close this case?')">
                                         <i class="bi bi-check-circle"></i> Close
@@ -115,10 +160,42 @@
                                     </button>
                                 </form>
                             </div>
+                            {% endif %}
+
+                            <div class="p-2 border rounded bg-light">
+                                <h6 class="small fw-bold text-uppercase text-muted d-flex justify-content-between">
+                                    Next Meeting
+                                    {% if current_user.role == 'doctor' %}
+                                    <a href="#" class="text-decoration-none" data-bs-toggle="collapse" data-bs-target="#scheduleForm">Edit</a>
+                                    {% endif %}
+                                </h6>
+                                {% if case.next_meeting_time %}
+                                    <p class="mb-1"><strong><i class="bi bi-clock"></i> {{ case.next_meeting_time.strftime('%Y-%m-%d %H:%M') }}</strong></p>
+                                    <p class="small mb-0 text-muted">{{ case.next_meeting_notes }}</p>
+                                {% else %}
+                                    <p class="small text-muted mb-0">Not scheduled yet.</p>
+                                {% endif %}
+
+                                {% if current_user.role == 'doctor' %}
+                                <div class="collapse mt-2" id="scheduleForm">
+                                    <form action="{{ url_for('schedule_meeting', case_id=case.id) }}" method="POST">
+                                        {{ meeting_form.hidden_tag() }}
+                                        <div class="mb-2">
+                                            {{ meeting_form.meeting_time(class="form-control form-control-sm", id="meeting-picker") }}
+                                        </div>
+                                        <div class="mb-2">
+                                            {{ meeting_form.notes(class="form-control form-control-sm", placeholder="Notes (e.g. With Dr. Smith)") }}
+                                        </div>
+                                        <button type="submit" class="btn btn-xs btn-primary w-100">Schedule</button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
                         
                         <hr>
                         
+                        {% if current_user.role == 'doctor' %}
                         <div class="mb-4">
                             <h6>AI Recommendation</h6>
                             <p class="small text-muted">Get AI-powered specialist recommendation based on symptoms and vitals.</p>
@@ -149,6 +226,7 @@
                                 <button type="submit" class="btn btn-sm btn-outline-info w-100">Assign Specialist</button>
                             </form>
                         </div>
+                        {% endif %}
 
                         <div class="mt-4">
                             <h6>Assigned Doctors</h6>
@@ -288,5 +366,16 @@
             }
         });
     }
+
+    // Set default value for meeting picker if empty
+    document.addEventListener('DOMContentLoaded', () => {
+        const picker = document.getElementById('meeting-picker');
+        if (picker && !picker.value) {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 30); // Default to 30 mins from now
+            const iso = now.toISOString().slice(0, 16).replace('T', ' ');
+            picker.value = iso;
+        }
+    });
 </script>
 {% endblock %}
