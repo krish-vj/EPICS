@@ -54,6 +54,15 @@ class DoctorProfile(db.Model):
     # Cases where this doctor is the assigned specialist
     cases_as_specialist = db.relationship('Case', backref='specialist', lazy=True, foreign_keys='Case.specialist_profile_id')
 
+    @property
+    def active_cases_count(self):
+        # Count cases where this doctor is either generalist or specialist and case is 'active' or 'open'
+        count = Case.query.filter(
+            (Case.doctor_profile_id == self.id) | (Case.specialist_profile_id == self.id),
+            Case.status.in_(['open', 'active'])
+        ).count()
+        return count
+
 class Case(db.Model):
     __tablename__ = "cases"
     id = db.Column(db.String(36), primary_key=True, default=gen_uuid)

@@ -100,9 +100,21 @@
                         <div class="mb-4">
                             <h6>Video Consultation</h6>
                             <button onclick="startVideoCall('{{ case.id }}', '{{ case.patient_profile.user_id }}')" 
-                                    class="btn btn-lg btn-success w-100">
+                                    class="btn btn-lg btn-success w-100 mb-2">
                                 <i class="bi bi-camera-video-fill"></i> Join Call
                             </button>
+                            <div class="d-flex gap-2">
+                                <form action="{{ url_for('close_case', case_id=case.id) }}" method="POST" class="flex-fill">
+                                    <button type="submit" class="btn btn-outline-dark w-100" onclick="return confirm('Close this case?')">
+                                        <i class="bi bi-check-circle"></i> Close
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('reject_case', case_id=case.id) }}" method="POST" class="flex-fill">
+                                    <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Reject this case?')">
+                                        <i class="bi bi-x-circle"></i> Reject
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                         
                         <hr>

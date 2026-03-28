@@ -333,6 +333,42 @@ def view_case(case_id):
     
     return render_template('case_detail.html', case=case, report_form=report_form, assign_form=assign_form)
 
+@app.route('/doctor/case/<case_id>/close', methods=['POST'])
+@login_required
+def close_case(case_id):
+    if current_user.role != 'doctor': return redirect(url_for('index'))
+    case = db.session.get(Case, case_id)
+    doc_id = current_user.doctor_profile.id
+    
+    if case and (case.doctor_profile_id == doc_id or case.specialist_profile_id == doc_id):
+        case.status = 'closed'
+        db.session.commit()
+        flash('Case closed successfully.')
+    else:
+        flash('Unauthorized to close this case.')
+    return redirect(url_for('doctor_dashboard'))
+
+@app.route('/doctor/case/<case_id>/reject', methods=['POST'])
+@login_required
+def reject_case(case_id):
+    if current_user.role != 'doctor': return redirect(url_for('index'))
+    case = db.session.get(Case, case_id)
+    doc_id = current_user.doctor_profile.id
+    
+    if case:
+        if case.specialist_profile_id == doc_id:
+            case.specialist_profile_id = None
+            db.session.commit()
+            flash('You have declined the specialist role for this case.')
+        elif case.doctor_profile_id == doc_id:
+            case.doctor_profile_id = None
+            case.status = 'open'
+            db.session.commit()
+            flash('You have rejected this case. It is now open for other doctors.')
+        else:
+            flash('You are not assigned to this case.')
+    return redirect(url_for('doctor_dashboard'))
+
 @app.route('/doctor/case/<case_id>/upload_report', methods=['POST'])
 @login_required
 def upload_report(case_id):
