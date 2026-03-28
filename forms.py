@@ -12,6 +12,14 @@ class RegisterForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=3, max=64)])
     password = PasswordField('Password', validators=[DataRequired()])
     role = SelectField('Role', choices=[('patient', 'Patient'), ('doctor', 'Doctor')], validators=[DataRequired()])
+    
+    # Common/Conditional fields
+    full_name = StringField('Full Name', validators=[Optional()])
+    age = IntegerField('Age', validators=[Optional()])
+    specialization = StringField('Specialization (for Doctors)', validators=[Optional()])
+    latitude = FloatField('Latitude', validators=[Optional()])
+    longitude = FloatField('Longitude', validators=[Optional()])
+    
     submit = SubmitField('Register')
 
 class PatientProfileForm(FlaskForm):
