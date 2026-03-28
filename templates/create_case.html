@@ -26,8 +26,15 @@
                             {% if field.name == 'patient_username' %}
                                 {{ field(class="form-control", id="patient-search", autocomplete="off", placeholder="Start typing username...") }}
                                 <div id="patient-results" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                            {% elif field.name == 'required_specialist' %}
+                                <div class="input-group">
+                                    {{ field(class="form-select", id="specialist-req") }}
+                                    <button type="button" class="btn btn-outline-secondary" onclick="suggestSpecialist()" id="ai-suggest-btn">
+                                        <i class="bi bi-robot"></i> AI Help
+                                    </button>
+                                </div>
                             {% elif field.type == 'TextAreaField' %}
-                                {{ field(class="form-control", rows=4) }}
+                                {{ field(class="form-control", rows=4, id="symptoms-field" if field.name == 'symptoms' else "") }}
                             {% else %}
                                 {{ field(class="form-control") }}
                             {% endif %}
@@ -96,6 +103,49 @@
                 patientResults.classList.add('d-none');
             }
         });
+    }
+
+    async function suggestSpecialist() {
+        const symptoms = document.getElementById('symptoms-field').value;
+        if (!symptoms || symptoms.length < 5) {
+            alert('Please enter symptoms first for AI to analyze.');
+            return;
+        }
+
+        const btn = document.getElementById('ai-suggest-btn');
+        const dropdown = document.getElementById('specialist-req');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analyzing...';
+
+        try {
+            const res = await fetch('/api/suggest_category', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symptoms: symptoms })
+            });
+            const data = await res.json();
+            
+            if (data.category) {
+                // Find matching option in dropdown
+                let found = false;
+                for (let i = 0; i < dropdown.options.length; i++) {
+                    if (dropdown.options[i].value === data.category) {
+                        dropdown.selectedIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    alert('AI suggested ' + data.category + ', but please choose the closest available option.');
+                }
+            }
+        } catch (err) {
+            console.error('AI suggestion failed:', err);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-robot"></i> AI Help';
+        }
     }
 </script>
 {% endblock %}

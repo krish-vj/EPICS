@@ -78,6 +78,7 @@ class Case(db.Model):
     specialist_profile_id = db.Column(db.Integer, db.ForeignKey('doctor_profiles.id'), nullable=True)
     
     symptoms = db.Column(db.Text) # Current issue
+    required_specialist = db.Column(db.String(100), nullable=True) # e.g., 'Cardiologist'
     
     # Phase 1: Structured Vitals
     bp = db.Column(db.String(20))         # e.g., "120/80"

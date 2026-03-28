@@ -41,7 +41,14 @@ def load_user(user_id):
     return db.session.get(User, user_id)
 
 # Configure Gemini
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+import google.genai
+print(f"--- SDK DEBUG: genai library location: {google.genai.__file__} ---")
+print("--- SDK STATUS: INITIALIZING GOOGLE-GENAI SDK (FORCED V1) ---")
+# Force API version to v1 to avoid v1beta redirects
+client = genai.Client(
+    api_key=os.environ.get("GEMINI_API_KEY"),
+    http_options={'api_version': 'v1'}
+)
 
 def haversine(lat1, lon1, lat2, lon2):
     """Calculate the great circle distance between two points on the earth in km."""
@@ -65,15 +72,28 @@ def get_specialist_recommendation(symptoms, vitals):
     
     Provide ONLY the category name as the output.
     """
-    try:
-        response = client.models.generate_content(
-            model='gemini-1.5-flash',
-            contents=prompt
-        )
-        return response.text.strip()
-    except Exception as e:
-        print(f"Gemini Error: {e}")
-        return "General Physician"
+    
+    # Try multiple stable models available in 2026
+    models_to_try = [ 'gemini-2.5-flash']
+    
+    for model_name in models_to_try:
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt
+            )
+            return response.text.strip()
+        except Exception as e:
+            if "404" in str(e):
+                print(f"Gemini: Model {model_name} not found, trying next...")
+                continue
+            if "503" in str(e) or "high demand" in str(e).lower():
+                print(f"Gemini API: High demand (503) on {model_name}. Falling back.")
+                return "General Physician"
+            print(f"Gemini Error on {model_name}: {e}")
+            break
+            
+    return "General Physician"
 
 @app.route('/api/search_patients')
 @login_required
@@ -113,6 +133,18 @@ def search_specialists():
             'specialization': u.doctor_profile.specialization
         })
     return jsonify(results)
+
+@app.route('/api/suggest_category', methods=['POST'])
+@login_required
+def suggest_category():
+    data = request.get_json()
+    symptoms = data.get('symptoms', '')
+    if not symptoms:
+        return jsonify({'category': None})
+    
+    # Use existing Gemini logic
+    category = get_specialist_recommendation(symptoms, "Not provided")
+    return jsonify({'category': category})
 
 # --- Routes ---
 
@@ -233,6 +265,7 @@ def create_case():
         new_case = Case(
             patient_profile_id=current_user.patient_profile.id,
             symptoms=form.symptoms.data,
+            required_specialist=form.required_specialist.data or None,
             bp=form.bp.data,
             heart_rate=form.heart_rate.data,
             spo2=form.spo2.data,
@@ -253,8 +286,23 @@ def doctor_dashboard():
     if not doc_profile.is_approved:
         return render_template('doctor_pending.html')
     
-    # Show cases where doctor is either generalist or specialist
-    open_cases = Case.query.filter_by(status='open').all()
+    # Smart Triage Logic:
+    # 1. If doc is "General Physician", they see cases with NULL specialist req or 'General Physician'.
+    # 2. If doc is a specialist (e.g., 'Cardiologist'), they see cases tagged specifically for them.
+    if doc_profile.specialization == 'General Physician':
+        open_cases = Case.query.filter(
+            Case.status == 'open',
+            (Case.required_specialist == None) | (Case.required_specialist == 'General Physician')
+        ).order_by(Case.created_at.asc()).limit(20).all()
+    else:
+        # Specialists see their specific cases OR general cases? 
+        # Usually specialists want to see what they are assigned to.
+        # Let's show them cases matching their specialization.
+        open_cases = Case.query.filter(
+            Case.status == 'open',
+            Case.required_specialist == doc_profile.specialization
+        ).order_by(Case.created_at.asc()).limit(20).all()
+
     my_general_cases = Case.query.filter_by(doctor_profile_id=doc_profile.id).all()
     my_specialist_cases = Case.query.filter_by(specialist_profile_id=doc_profile.id).all()
     
@@ -293,6 +341,7 @@ def doctor_create_case():
             patient_profile_id=patient_user.patient_profile.id,
             doctor_profile_id=current_user.doctor_profile.id,
             symptoms=form.symptoms.data,
+            required_specialist=form.required_specialist.data or None,
             bp=form.bp.data,
             heart_rate=form.heart_rate.data,
             spo2=form.spo2.data,
@@ -587,13 +636,63 @@ def handle_end_call(data):
 # --- Init DB & Admin ---
 def init_db():
     with app.app_context():
+        # Drop and Recreate for fresh start if needed (User should manually drop tables as discussed)
         db.create_all()
+        
         if not User.query.filter_by(username='admin').first():
             admin = User(username='admin', role='admin')
             admin.set_password('admin')
             db.session.add(admin)
+            
+            # 1. Seed 30 Doctors
+            specs = ['General Physician', 'Cardiologist', 'Dermatologist', 'Gynecologist', 'Neurologist', 'Pediatrician']
+            for i in range(1, 31):
+                username = f'doc{i}'
+                if not User.query.filter_by(username=username).first():
+                    u = User(username=username, role='doctor')
+                    u.set_password('password')
+                    db.session.add(u)
+                    db.session.flush()
+                    
+                    # Cycle through specializations
+                    spec = specs[i % len(specs)]
+                    # Random coordinates around a central point (e.g., Bhopal, India: 23.25, 77.41)
+                    lat = 23.25 + (i * 0.01)
+                    lng = 77.41 + (i * 0.01)
+                    
+                    d = DoctorProfile(
+                        user_id=u.id, 
+                        specialization=spec, 
+                        is_approved=True, # Auto-approve for testing
+                        latitude=lat,
+                        longitude=lng
+                    )
+                    db.session.add(d)
+
+            # 2. Seed 30 Patients
+            for i in range(1, 31):
+                username = f'patient{i}'
+                if not User.query.filter_by(username=username).first():
+                    u = User(username=username, role='patient')
+                    u.set_password('password')
+                    db.session.add(u)
+                    db.session.flush()
+                    
+                    lat = 23.20 + (i * 0.005)
+                    lng = 77.35 + (i * 0.005)
+                    
+                    p = PatientProfile(
+                        user_id=u.id,
+                        name=f'Patient Name {i}',
+                        age=20 + i,
+                        medical_history="No significant history." if i%2==0 else "Allergic to Penicillin.",
+                        latitude=lat,
+                        longitude=lng
+                    )
+                    db.session.add(p)
+            
             db.session.commit()
-            print("Admin created (admin/admin)")
+            print("Database Seeded: Admin(admin), 30 Doctors(doc1-30), 30 Patients(patient1-30). Passwords: 'password' or 'admin'")
 
 if __name__ == '__main__':
     init_db()

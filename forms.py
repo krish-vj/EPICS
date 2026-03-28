@@ -3,6 +3,22 @@ from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SelectField, SubmitField, TextAreaField, IntegerField, FloatField, BooleanField
 from wtforms.validators import DataRequired, Length, Optional
 
+# Constants for common medical categories
+SPECIALIZATIONS = [
+    ('General Physician', 'General Physician'),
+    ('Cardiologist', 'Cardiologist'),
+    ('Dermatologist', 'Dermatologist'),
+    ('Gynecologist', 'Gynecologist'),
+    ('Neurologist', 'Neurologist'),
+    ('Pediatrician', 'Pediatrician'),
+    ('Orthopedic', 'Orthopedic'),
+    ('Psychiatrist', 'Psychiatrist'),
+    ('Ophthalmologist', 'Ophthalmologist'),
+    ('ENT Specialist', 'ENT Specialist'),
+    ('Dentist', 'Dentist'),
+    ('Nutritionist', 'Nutritionist/Dietician')
+]
+
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     password = PasswordField('Password', validators=[DataRequired()])
@@ -16,7 +32,7 @@ class RegisterForm(FlaskForm):
     # Common/Conditional fields
     full_name = StringField('Full Name', validators=[Optional()])
     age = IntegerField('Age', validators=[Optional()])
-    specialization = StringField('Specialization (for Doctors)', validators=[Optional()])
+    specialization = SelectField('Specialization (for Doctors)', choices=[('', '-- Select Specialist Category --')] + SPECIALIZATIONS, validators=[Optional()])
     latitude = FloatField('Latitude', validators=[Optional()])
     longitude = FloatField('Longitude', validators=[Optional()])
     
@@ -36,13 +52,16 @@ class PatientProfileForm(FlaskForm):
     submit = SubmitField('Save Profile')
 
 class DoctorProfileForm(FlaskForm):
-    specialization = StringField('Specialization', validators=[DataRequired()])
+    specialization = SelectField('Specialization', choices=SPECIALIZATIONS, validators=[DataRequired()])
     latitude = FloatField('Latitude', validators=[Optional()])
     longitude = FloatField('Longitude', validators=[Optional()])
     submit = SubmitField('Save Profile')
 
 class CaseForm(FlaskForm):
     symptoms = TextAreaField('Current Symptoms', validators=[DataRequired()])
+    required_specialist = SelectField('Requested Specialist (Optional)', 
+                                    choices=[('', '-- Let AI/Village Doc Decide --')] + SPECIALIZATIONS, 
+                                    validators=[Optional()])
     
     # Phase 1: Vitals
     bp = StringField('Blood Pressure (e.g., 120/80)', validators=[Optional()])
