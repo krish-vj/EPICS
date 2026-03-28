@@ -10,7 +10,7 @@ from forms import LoginForm, RegisterForm, PatientProfileForm, DoctorProfileForm
 import os
 import math
 from datetime import datetime
-import google.generativeai as genai
+from google import genai
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 load_dotenv()  # This loads the variables from .env into os.environ
@@ -41,7 +41,7 @@ def load_user(user_id):
     return db.session.get(User, user_id)
 
 # Configure Gemini
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 def haversine(lat1, lon1, lat2, lon2):
     """Calculate the great circle distance between two points on the earth in km."""
@@ -57,7 +57,6 @@ def haversine(lat1, lon1, lat2, lon2):
 
 def get_specialist_recommendation(symptoms, vitals):
     """Use Gemini to recommend a specialist type based on symptoms and vitals."""
-    model = genai.GenerativeModel('gemini-1.5-flash')
     prompt = f"""
     Based on the following patient symptoms and vitals, recommend the MOST appropriate medical specialist category (e.g., Cardiologist, Dermatologist, Gynecologist, General Physician, etc.).
     
@@ -67,7 +66,10 @@ def get_specialist_recommendation(symptoms, vitals):
     Provide ONLY the category name as the output.
     """
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         print(f"Gemini Error: {e}")
@@ -419,47 +421,56 @@ def video_call(room_id):
 @app.route('/doctor/recommend_doctor/<case_id>')
 @login_required
 def recommend_doctor(case_id):
+    print(f"DEBUG: recommend_doctor called for case_id: {case_id}")
     if current_user.role != 'doctor': return jsonify({'error': 'Unauthorized'}), 403
     
-    case = db.session.get(Case, case_id)
-    if not case: return jsonify({'error': 'Case not found'}), 404
-    
-    # 1. Get Specialist Category from Gemini
-    vitals = f"BP: {case.bp}, HR: {case.heart_rate}, SpO2: {case.spo2}, Temp: {case.temperature}"
-    recommended_category = get_specialist_recommendation(case.symptoms, vitals)
-    
-    # 2. Search for doctors based on category
-    potential_docs = DoctorProfile.query.filter(
-        DoctorProfile.is_approved == True,
-        DoctorProfile.specialization.ilike(f"%{recommended_category}%")
-    ).all()
-    
-    if not potential_docs:
-        potential_docs = DoctorProfile.query.filter(DoctorProfile.is_approved == True).all()
+    try:
+        case = db.session.get(Case, case_id)
+        if not case: return jsonify({'error': 'Case not found'}), 404
         
-    results = []
-    patient = case.patient_profile
-    
-    for doc in potential_docs:
-        dist = haversine(patient.latitude, patient.longitude, doc.latitude, doc.longitude)
-        availability_score = doc.active_cases_count
-        ranking_score = dist + (availability_score * 10)
+        # 1. Get Specialist Category from Gemini
+        vitals = f"BP: {case.bp}, HR: {case.heart_rate}, SpO2: {case.spo2}, Temp: {case.temperature}"
+        recommended_category = get_specialist_recommendation(case.symptoms, vitals)
         
-        results.append({
-            'doc_id': doc.id,
-            'name': doc.user.username,
-            'specialization': doc.specialization,
-            'distance_km': round(dist, 2),
-            'active_cases': availability_score,
-            'ranking_score': ranking_score
+        # 2. Search for doctors based on category
+        potential_docs = DoctorProfile.query.filter(
+            DoctorProfile.is_approved == True,
+            DoctorProfile.specialization.ilike(f"%{recommended_category}%")
+        ).all()
+        
+        if not potential_docs:
+            potential_docs = DoctorProfile.query.filter(DoctorProfile.is_approved == True).all()
+            
+        results = []
+        patient = case.patient_profile
+        if not patient:
+            return jsonify({'error': 'Patient profile not found for this case'}), 400
+            
+        for doc in potential_docs:
+            dist = haversine(patient.latitude, patient.longitude, doc.latitude, doc.longitude)
+            availability_score = doc.active_cases_count
+            ranking_score = dist + (availability_score * 10)
+            
+            results.append({
+                'doc_id': doc.id,
+                'name': doc.user.username if doc.user else "Unknown Doctor",
+                'specialization': doc.specialization,
+                'distance_km': round(dist, 2),
+                'active_cases': availability_score,
+                'ranking_score': ranking_score
+            })
+        
+        results.sort(key=lambda x: x['ranking_score'])
+        
+        return jsonify({
+            'recommended_category': recommended_category,
+            'doctors': results[:5]
         })
-    
-    results.sort(key=lambda x: x['ranking_score'])
-    
-    return jsonify({
-        'recommended_category': recommended_category,
-        'doctors': results[:5]
-    })
+    except Exception as e:
+        print(f"Error in recommend_doctor: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 # --- Socket Events ---
 

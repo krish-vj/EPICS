@@ -196,6 +196,11 @@
         
         try {
             const response = await fetch(`/doctor/recommend_doctor/${caseId}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Server error response:', errorText);
+                throw new Error(`Server returned ${response.status}: ${errorText.substring(0, 100)}...`);
+            }
             const data = await response.json();
             
             if (data.error) {

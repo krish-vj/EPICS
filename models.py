@@ -49,6 +49,10 @@ class DoctorProfile(db.Model):
     specialization = db.Column(db.String(100))
     is_approved = db.Column(db.Boolean, default=False)
     
+    # Phase 2: Geographical Data
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    
     # Cases where this doctor is the primary/generalist
     cases_as_generalist = db.relationship('Case', backref='generalist', lazy=True, foreign_keys='Case.doctor_profile_id')
     # Cases where this doctor is the assigned specialist
