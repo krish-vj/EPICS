@@ -29,6 +29,8 @@ class PatientProfileForm(FlaskForm):
 
 class DoctorProfileForm(FlaskForm):
     specialization = StringField('Specialization', validators=[DataRequired()])
+    latitude = FloatField('Latitude', validators=[Optional()])
+    longitude = FloatField('Longitude', validators=[Optional()])
     submit = SubmitField('Save Profile')
 
 class CaseForm(FlaskForm):

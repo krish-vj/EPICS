@@ -108,6 +108,24 @@
                         <hr>
                         
                         <div class="mb-4">
+                            <h6>AI Recommendation</h6>
+                            <p class="small text-muted">Get AI-powered specialist recommendation based on symptoms and vitals.</p>
+                            <button id="get-recommendation-btn" class="btn btn-sm btn-info w-100" onclick="getRecommendation('{{ case.id }}')">
+                                <i class="bi bi-robot"></i> Get AI Recommendation
+                            </button>
+                            
+                            <div id="ai-recommendation-results" class="mt-3 d-none">
+                                <div class="p-2 border rounded bg-white">
+                                    <p class="mb-1 small"><strong>Recommended:</strong> <span id="rec-category" class="badge bg-success"></span></p>
+                                    <hr class="my-1">
+                                    <div id="rec-doctors-list" class="small">
+                                        <!-- Doctor recommendations will appear here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
                             <h6>Case Handoff</h6>
                             <p class="small text-muted">Assign a specialist to this case. Both you and the specialist will have access.</p>
                             <form action="{{ url_for('assign_specialist', case_id=case.id) }}" method="POST">
@@ -152,6 +170,51 @@
         setTimeout(() => {
             window.location.href = "/video_call/" + roomId;
         }, 500);
+    }
+
+    async function getRecommendation(caseId) {
+        const btn = document.getElementById('get-recommendation-btn');
+        const resultsDiv = document.getElementById('ai-recommendation-results');
+        const categorySpan = document.getElementById('rec-category');
+        const doctorsList = document.getElementById('rec-doctors-list');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analyzing...';
+        
+        try {
+            const response = await fetch(`/doctor/recommend_doctor/${caseId}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+            
+            categorySpan.innerText = data.recommended_category;
+            doctorsList.innerHTML = '';
+            
+            if (data.doctors.length === 0) {
+                doctorsList.innerHTML = '<p class="text-muted mb-0">No matching doctors found.</p>';
+            } else {
+                data.doctors.forEach(doc => {
+                    const docEl = document.createElement('div');
+                    docEl.className = 'mb-1 p-1 border-bottom';
+                    docEl.innerHTML = `
+                        <strong>${doc.name}</strong> (${doc.specialization})<br>
+                        <small class="text-muted">Dist: ${doc.distance_km}km | Active Cases: ${doc.active_cases}</small>
+                    `;
+                    doctorsList.appendChild(docEl);
+                });
+            }
+            
+            resultsDiv.classList.remove('d-none');
+        } catch (err) {
+            console.error('Failed to get recommendation:', err);
+            alert('An error occurred while getting recommendation.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-robot"></i> Get AI Recommendation';
+        }
     }
 </script>
 {% endblock %}

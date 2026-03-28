@@ -49,10 +49,24 @@ class DoctorProfile(db.Model):
     specialization = db.Column(db.String(100))
     is_approved = db.Column(db.Boolean, default=False)
     
+    # Phase 2: Geographical Data
+    latitude = db.Column(db.Float)
+    longitude = db.Column(db.Float)
+    
     # Cases where this doctor is the primary/generalist
     cases_as_generalist = db.relationship('Case', backref='generalist', lazy=True, foreign_keys='Case.doctor_profile_id')
     # Cases where this doctor is the assigned specialist
     cases_as_specialist = db.relationship('Case', backref='specialist', lazy=True, foreign_keys='Case.specialist_profile_id')
+
+    @property
+    def active_cases_count(self):
+        # Count cases where this doctor is either generalist or specialist and case is 'active' or 'open'
+        # In this context, 'active' means they are currently working on it.
+        count = Case.query.filter(
+            (Case.doctor_profile_id == self.id) | (Case.specialist_profile_id == self.id),
+            Case.status.in_(['open', 'active'])
+        ).count()
+        return count
 
 class Case(db.Model):
     __tablename__ = "cases"

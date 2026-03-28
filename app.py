@@ -8,6 +8,8 @@ from flask_socketio import SocketIO, join_room, leave_room, emit
 from models import db, User, PatientProfile, DoctorProfile, Case, Report
 from forms import LoginForm, RegisterForm, PatientProfileForm, DoctorProfileForm, CaseForm, VillageDoctorCaseForm, ReportUploadForm, AssignSpecialistForm
 import os
+import math
+import google.generativeai as genai
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 load_dotenv()  # This loads the variables from .env into os.environ
@@ -36,6 +38,39 @@ user_sockets = {}  # Maps user_id to socket_id
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, user_id)
+
+# Configure Gemini
+genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Calculate the great circle distance between two points on the earth in km."""
+    if None in [lat1, lon1, lat2, lon2]: return float('inf')
+    R = 6371  # Earth radius in km
+    dLat = math.radians(lat2 - lat1)
+    dLon = math.radians(lon2 - lon1)
+    a = math.sin(dLat / 2) * math.sin(dLat / 2) + \
+        math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * \
+        math.sin(dLon / 2) * math.sin(dLon / 2)
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+def get_specialist_recommendation(symptoms, vitals):
+    """Use Gemini to recommend a specialist type based on symptoms and vitals."""
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    prompt = f"""
+    Based on the following patient symptoms and vitals, recommend the MOST appropriate medical specialist category (e.g., Cardiologist, Dermatologist, Gynecologist, General Physician, etc.).
+    
+    Symptoms: {symptoms}
+    Vitals: {vitals}
+    
+    Provide ONLY the category name as the output.
+    """
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        print(f"Gemini Error: {e}")
+        return "General Physician"
 
 # --- Routes ---
 
@@ -293,6 +328,57 @@ def assign_specialist(case_id):
 @login_required
 def video_call(room_id):
     return render_template('video_call.html', room_id=room_id, username=current_user.username)
+
+@app.route('/doctor/recommend_doctor/<case_id>')
+@login_required
+def recommend_doctor(case_id):
+    if current_user.role != 'doctor': return jsonify({'error': 'Unauthorized'}), 403
+    
+    case = db.session.get(Case, case_id)
+    if not case: return jsonify({'error': 'Case not found'}), 404
+    
+    # 1. Get Specialist Category from Gemini
+    vitals = f"BP: {case.bp}, HR: {case.heart_rate}, SpO2: {case.spo2}, Temp: {case.temperature}"
+    recommended_category = get_specialist_recommendation(case.symptoms, vitals)
+    
+    # 2. Search for doctors based on category
+    # Case-insensitive partial match for specialization
+    potential_docs = DoctorProfile.query.filter(
+        DoctorProfile.is_approved == True,
+        DoctorProfile.specialization.ilike(f"%{recommended_category}%")
+    ).all()
+    
+    # If no specific specialist found, fallback to all approved doctors
+    if not potential_docs:
+        potential_docs = DoctorProfile.query.filter(DoctorProfile.is_approved == True).all()
+        
+    results = []
+    patient = case.patient_profile
+    
+    for doc in potential_docs:
+        dist = haversine(patient.latitude, patient.longitude, doc.latitude, doc.longitude)
+        # availability: lower active cases is better.
+        # We can create a simple score: distance (km) + (active_cases * 10) 
+        # (Weighting: 1 active case is roughly equivalent to being 10km further away)
+        availability_score = doc.active_cases_count
+        ranking_score = dist + (availability_score * 10)
+        
+        results.append({
+            'doc_id': doc.id,
+            'name': doc.user.username,
+            'specialization': doc.specialization,
+            'distance_km': round(dist, 2),
+            'active_cases': availability_score,
+            'ranking_score': ranking_score
+        })
+    
+    # Sort by ranking_score (ascending)
+    results.sort(key=lambda x: x['ranking_score'])
+    
+    return jsonify({
+        'recommended_category': recommended_category,
+        'doctors': results[:5] # Top 5 recommendations
+    })
 
 # --- Socket Events ---
 
