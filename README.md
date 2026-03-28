@@ -30,16 +30,16 @@ Beyond immediate care, the platform tracks medical history across a patient's li
 
 ### Phase 1: Clinical Foundation
 - [x] Basic Profile Management
-- [ ] Structured Vitals Tracking (BP, SpO2, Temp)
-- [ ] Secure Medical Report Uploads (PDF/Images)
+- [x] Structured Vitals Tracking (BP, SpO2, Temp)
+- [x] Secure Medical Report Uploads (PDF/Images)
 
 ### Phase 2: Intelligence Layer
-- [ ] Gemini API Integration for specialist recommendations
-- [ ] Proximity & Budget-based Search Algorithm
+- [x] Gemini API Integration for specialist recommendations
+- [x] Proximity & Budget-based Search Algorithm
 - [ ] Automated Allergy & Conflict Warning System
 
 ### Phase 3: Enhanced UX
-- [ ] Hardened WebRTC for low-bandwidth environments
+- [x] Hardened WebRTC for low-bandwidth environments
 - [ ] Integrated Doctor Scheduling & Calendar Management
 - [ ] Real-time Text Chat during video calls
 
