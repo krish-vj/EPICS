@@ -61,7 +61,6 @@ class DoctorProfile(db.Model):
     @property
     def active_cases_count(self):
         # Count cases where this doctor is either generalist or specialist and case is 'active' or 'open'
-        # In this context, 'active' means they are currently working on it.
         count = Case.query.filter(
             (Case.doctor_profile_id == self.id) | (Case.specialist_profile_id == self.id),
             Case.status.in_(['open', 'active'])
@@ -79,6 +78,7 @@ class Case(db.Model):
     specialist_profile_id = db.Column(db.Integer, db.ForeignKey('doctor_profiles.id'), nullable=True)
     
     symptoms = db.Column(db.Text) # Current issue
+    required_specialist = db.Column(db.String(100), nullable=True) # e.g., 'Cardiologist'
     
     # Phase 1: Structured Vitals
     bp = db.Column(db.String(20))         # e.g., "120/80"
@@ -91,6 +91,11 @@ class Case(db.Model):
     
     status = db.Column(db.String(20), default='open') # 'open', 'active', 'closed'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Phase 2: Prescriptions and Scheduling
+    prescriptions = db.Column(db.Text, nullable=True) # Format: Date: Text \with
+    next_meeting_time = db.Column(db.DateTime, nullable=True)
+    next_meeting_notes = db.Column(db.String(255), nullable=True)
     
     reports = db.relationship('Report', backref='case', lazy=True)
 

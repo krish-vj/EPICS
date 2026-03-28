@@ -1,22 +1,127 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="col-md-4 offset-md-4">
-    <h2>Register</h2>
-    <form method="post">
-        {{ form.hidden_tag() }}
-        <div class="mb-3">
-            {{ form.username.label(class="form-label") }}
-            {{ form.username(class="form-control") }}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Create Your Account</h2>
+                <form method="post" id="register-form">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control", placeholder="Choose username") }}
+                            {% for error in form.username.errors %}<span class="text-danger small">{{ error }}</span>{% endfor %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.password.label(class="form-label") }}
+                            {{ form.password(class="form-control", placeholder="Choose password") }}
+                            {% for error in form.password.errors %}<span class="text-danger small">{{ error }}</span>{% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        {{ form.role.label(class="form-label fw-bold") }}
+                        {{ form.role(class="form-select border-primary", id="role-select") }}
+                    </div>
+
+                    <div id="patient-fields" class="p-3 bg-light rounded mb-3 border-start border-4 border-info">
+                        <h5 class="text-info mb-3"><i class="bi bi-person-fill"></i> Patient Details</h5>
+                        <div class="mb-3">
+                            {{ form.full_name.label(class="form-label") }}
+                            {{ form.full_name(class="form-control", placeholder="Your Full Name") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.age.label(class="form-label") }}
+                            {{ form.age(class="form-control", placeholder="Age in years") }}
+                        </div>
+                    </div>
+
+                    <div id="doctor-fields" class="p-3 bg-light rounded mb-3 border-start border-4 border-primary d-none">
+                        <h5 class="text-primary mb-3"><i class="bi bi-heart-pulse-fill"></i> Doctor Details</h5>
+                        <div class="mb-3">
+                            {{ form.specialization.label(class="form-label") }}
+                            {{ form.specialization(class="form-control", placeholder="e.g. Cardiologist, Gynocologist") }}
+                        </div>
+                    </div>
+
+                    <div id="location-fields" class="p-3 bg-light rounded mb-3 border-start border-4 border-warning">
+                        <h5 class="text-warning mb-3"><i class="bi bi-geo-alt-fill"></i> Location (Optional)</h5>
+                        <p class="small text-muted mb-2">Providing coordinates helps us find the nearest specialists for you.</p>
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                {{ form.latitude.label(class="form-label small") }}
+                                {{ form.latitude(class="form-control", id="lat-field") }}
+                            </div>
+                            <div class="col-6 mb-2">
+                                {{ form.longitude.label(class="form-label small") }}
+                                {{ form.longitude(class="form-control", id="lng-field") }}
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-warning w-100 mt-2" onclick="detectLocation()">
+                            <i class="bi bi-cursor-fill"></i> Detect My Current Location
+                        </button>
+                    </div>
+
+                    <div class="mt-4">
+                        {{ form.submit(class="btn btn-primary btn-lg w-100") }}
+                    </div>
+                </form>
+                <div class="text-center mt-3">
+                    Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+                </div>
+            </div>
         </div>
-        <div class="mb-3">
-            {{ form.password.label(class="form-label") }}
-            {{ form.password(class="form-control") }}
-        </div>
-        <div class="mb-3">
-            {{ form.role.label(class="form-label") }}
-            {{ form.role(class="form-select") }}
-        </div>
-        {{ form.submit(class="btn btn-success") }}
-    </form>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const roleSelect = document.getElementById('role-select');
+    const patientFields = document.getElementById('patient-fields');
+    const doctorFields = document.getElementById('doctor-fields');
+
+    function toggleFields() {
+        if (roleSelect.value === 'patient') {
+            patientFields.classList.remove('d-none');
+            doctorFields.classList.add('d-none');
+        } else {
+            patientFields.classList.add('d-none');
+            doctorFields.classList.remove('d-none');
+        }
+    }
+
+    roleSelect.addEventListener('change', toggleFields);
+    // Initial call
+    toggleFields();
+
+    function detectLocation() {
+        if (navigator.geolocation) {
+            const btn = event.currentTarget;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Detecting...';
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    document.getElementById('lat-field').value = position.coords.latitude.toFixed(6);
+                    document.getElementById('lng-field').value = position.coords.longitude.toFixed(6);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> Location Detected';
+                    btn.classList.remove('btn-outline-warning');
+                    btn.classList.add('btn-success');
+                },
+                (error) => {
+                    console.error("Error detecting location:", error);
+                    alert("Could not detect location. Please enter manually.");
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-cursor-fill"></i> Detect My Current Location';
+                }
+            );
+        } else {
+            alert("Geolocation is not supported by this browser.");
+        }
+    }
+</script>
 {% endblock %}

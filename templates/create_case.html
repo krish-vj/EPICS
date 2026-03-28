@@ -15,7 +15,7 @@
                     {{ form.hidden_tag() }}
                     
                     {% for field in form if field.name not in ['csrf_token', 'submit'] %}
-                    <div class="mb-3">
+                    <div class="mb-3 position-relative">
                         {% if field.type == 'BooleanField' %}
                             <div class="form-check">
                                 {{ field(class="form-check-input") }}
@@ -23,8 +23,18 @@
                             </div>
                         {% else %}
                             {{ field.label(class="form-label") }}
-                            {% if field.type == 'TextAreaField' %}
-                                {{ field(class="form-control", rows=4) }}
+                            {% if field.name == 'patient_username' %}
+                                {{ field(class="form-control", id="patient-search", autocomplete="off", placeholder="Start typing username...") }}
+                                <div id="patient-results" class="list-group position-absolute w-100 shadow-sm d-none" style="z-index: 1000; max-height: 200px; overflow-y: auto;"></div>
+                            {% elif field.name == 'required_specialist' %}
+                                <div class="input-group">
+                                    {{ field(class="form-select", id="specialist-req") }}
+                                    <button type="button" class="btn btn-outline-secondary" onclick="suggestSpecialist()" id="ai-suggest-btn">
+                                        <i class="bi bi-robot"></i> AI Help
+                                    </button>
+                                </div>
+                            {% elif field.type == 'TextAreaField' %}
+                                {{ field(class="form-control", rows=4, id="symptoms-field" if field.name == 'symptoms' else "") }}
                             {% else %}
                                 {{ field(class="form-control") }}
                             {% endif %}
@@ -47,4 +57,95 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const patientInput = document.getElementById('patient-search');
+    const patientResults = document.getElementById('patient-results');
+
+    if (patientInput) {
+        patientInput.addEventListener('input', async (e) => {
+            const q = e.target.value;
+            if (q.length < 2) {
+                patientResults.classList.add('d-none');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/search_patients?q=${q}`);
+                const data = await res.json();
+                
+                patientResults.innerHTML = '';
+                if (data.length > 0) {
+                    data.forEach(item => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'list-group-item list-group-item-action py-2';
+                        btn.innerHTML = `<strong>${item.username}</strong> <span class="text-muted">(${item.name}, Age: ${item.age})</span>`;
+                        btn.onclick = () => {
+                            patientInput.value = item.username;
+                            patientResults.classList.add('d-none');
+                        };
+                        patientResults.appendChild(btn);
+                    });
+                    patientResults.classList.remove('d-none');
+                } else {
+                    patientResults.classList.add('d-none');
+                }
+            } catch (err) {
+                console.error('Patient search error:', err);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!patientInput.contains(e.target) && !patientResults.contains(e.target)) {
+                patientResults.classList.add('d-none');
+            }
+        });
+    }
+
+    async function suggestSpecialist() {
+        const symptoms = document.getElementById('symptoms-field').value;
+        if (!symptoms || symptoms.length < 5) {
+            alert('Please enter symptoms first for AI to analyze.');
+            return;
+        }
+
+        const btn = document.getElementById('ai-suggest-btn');
+        const dropdown = document.getElementById('specialist-req');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Analyzing...';
+
+        try {
+            const res = await fetch('/api/suggest_category', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ symptoms: symptoms })
+            });
+            const data = await res.json();
+            
+            if (data.category) {
+                // Find matching option in dropdown
+                let found = false;
+                for (let i = 0; i < dropdown.options.length; i++) {
+                    if (dropdown.options[i].value === data.category) {
+                        dropdown.selectedIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    alert('AI suggested ' + data.category + ', but please choose the closest available option.');
+                }
+            }
+        } catch (err) {
+            console.error('AI suggestion failed:', err);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-robot"></i> AI Help';
+        }
+    }
+</script>
 {% endblock %}
